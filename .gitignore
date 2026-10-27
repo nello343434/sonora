@@ -1,0 +1,18 @@
+# dépendances et builds
+node_modules/
+dist/
+out/
+*.log
+
+# secrets : ne jamais publier
+sonora.config.json
+.env
+.env.*
+
+# système
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# archives de travail
+*.zip

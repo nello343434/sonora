@@ -1,0 +1,14 @@
+{
+  "name": "sonora",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.perso.sonora",
+    "productName": "Sonora",
+    "win": { "target": "nsis", "icon": "build/icon.ico" }
+  }
+}
