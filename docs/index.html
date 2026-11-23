@@ -1,0 +1,125 @@
+<!doctype html>
+<html class="mobile" lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob: file:; media-src * file: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' https://www.youtube.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' https: data: blob:">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, interactive-widget=resizes-content">
+<title>Sonora</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="mobile.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sonora">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+</head>
+<body>
+<div id="bg"></div>
+<div id="bg-dim"></div>
+
+
+
+<div id="app">
+  <aside id="sidebar" class="panel">
+    <nav>
+      <button class="nav" data-view="home" title="Accueil"><i class="ic" data-icon="home"></i> <span>Accueil</span></button>
+      <button class="nav" id="nav-search" title="Rechercher (Ctrl+K)"><i class="ic" data-icon="search"></i> <span>Rechercher</span></button>
+      <button class="nav" data-view="collection" title="Bibliothèque"><i class="ic" data-icon="library"></i> <span>Bibliothèque</span></button>
+    </nav>
+    <div class="side-title">
+      <span>Playlists</span>
+      <button id="new-playlist" class="icon-btn" title="Nouvelle playlist" data-icon="plus"></button>
+    </div>
+    <div id="playlists" class="side-list"></div>
+    <button class="nav bottom" data-view="settings" title="Paramètres"><i class="ic" data-icon="gear"></i> <span>Paramètres</span></button>
+  </aside>
+
+  <div id="search-blur"></div>
+  <header id="topbar">
+    <div class="brand"><span class="logo"><svg viewBox="208 161 608 700" fill="currentColor" aria-hidden="true"><rect class="b" style="--i:0" x="208" y="411" width="101" height="200" rx="50.5"/><rect class="b" style="--i:1" x="335" y="278" width="101" height="468" rx="50.5"/><rect class="b" style="--i:2" x="462" y="161" width="101" height="700" rx="50.5"/><rect class="b" style="--i:3" x="589" y="312" width="101" height="401" rx="50.5"/><rect class="b" style="--i:4" x="715" y="428" width="101" height="168" rx="50.5"/></svg></span> Sonora</div>
+    <div class="tb-search">
+      <span class="tb-ico" data-icon="search"></span>
+      <input id="search-input" placeholder="Rechercher" autocomplete="off" spellcheck="false">
+      <button id="tb-clear" class="icon-btn hidden" data-act="clear-search" title="Effacer" data-icon="close"></button>
+      <div id="search-pop" class="search-pop hidden"><div id="live-results"></div></div>
+    </div>
+    <div class="tb-right">
+      <div class="pillg"><button id="nav-back" title="Précédent" disabled><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button id="nav-fwd" title="Suivant" disabled><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>
+      <div class="pillg" id="wctl"><button data-wc="min" title="Réduire"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><button data-wc="max" id="wc-max" title="Agrandir"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg></button><button data-wc="close" class="wc-x" title="Fermer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    </div>
+  </header>
+
+  <main id="main" class="panel"></main>
+
+  <footer id="player" class="panel">
+    <div class="np">
+      <button id="btn-mini" class="icon-btn" title="Mode compact (masquer la barre latérale)" data-icon="mini"></button>
+      <div id="np-art" class="art"></div>
+      <div class="np-text">
+        <div id="np-title">Rien en lecture</div>
+        <div id="np-artist"></div>
+      </div>
+      <button id="np-like" class="icon-btn" title="Ajouter aux titres aimés" data-icon="heart"></button>
+    </div>
+    <div class="center">
+      <div class="controls">
+        <button id="btn-shuffle" class="icon-btn" title="Aléatoire" data-icon="shuffle"></button>
+        <button id="btn-prev" class="icon-btn" title="Précédent" data-icon="prev"></button>
+        <button id="btn-play" class="play-btn" title="Lecture / pause" data-icon="play"></button>
+        <button id="btn-next" class="icon-btn" title="Suivant" data-icon="next"></button>
+        <button id="btn-repeat" class="icon-btn" title="Répéter" data-icon="repeat"></button>
+      </div>
+      <div class="seek">
+        <span id="t-cur">0:00</span>
+        <input id="seek" type="range" min="0" max="1000" value="0">
+        <span id="t-dur">0:00</span>
+      </div>
+    </div>
+    <div class="right">
+      <button id="btn-lyrics" class="icon-btn" title="Paroles" data-icon="lyrics"></button>
+      <button id="btn-queue" class="icon-btn" title="File d'attente" data-icon="queue"></button>
+      <button id="btn-mute" class="icon-btn" title="Muet" data-icon="volHigh"></button>
+      <input id="volume" type="range" min="0" max="100" value="80">
+      <button id="btn-eq" class="icon-btn" title="Égaliseur"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="12" cy="15" r="2.2" fill="currentColor"/><circle cx="19" cy="8" r="2.2" fill="currentColor"/></svg></button>
+      <button id="btn-full" class="icon-btn" title="Plein écran" data-icon="full"></button>
+    </div>
+  </footer>
+</div>
+
+<div id="menu" class="menu hidden"></div>
+<div id="modal" class="modal hidden"></div>
+<div id="settings-modal" class="modal set-modal hidden"></div>
+<div id="toast" class="toast hidden"></div>
+
+<div id="yt-holder" style="position:fixed;right:0;bottom:0;width:220px;height:220px;overflow:hidden;opacity:.01;pointer-events:none;z-index:-1;">
+  <div id="yt-player"></div>
+</div>
+
+<script src="mobile-shim.js"></script>
+<script async src="https://www.youtube.com/iframe_api"></script>
+<script src="ui-icons.js"></script>
+<script src="app.js"></script>
+<script src="discover.js"></script>
+<script src="import.js"></script>
+<script src="nowplaying.js"></script>
+<script src="player-full.js"></script>
+<script src="reactive.js"></script>
+<script src="homebtn.js"></script>
+<script src="queue-panel.js"></script>
+<script src="playlists.js"></script>
+<script src="plmanage.js"></script>
+<script src="ytkey.js"></script>
+<script src="home.js"></script>
+<script src="settings.js"></script>
+<script src="covers.js"></script>
+<script src="volume.js"></script>
+<script src="ambient.js"></script>
+<script src="shell.js"></script>
+<script src="onboarding.js"></script>
+<script src="animated-bg.js"></script>
+<script src="mobile.js"></script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});</script>
+</body>
+</html>

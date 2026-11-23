@@ -1,0 +1,163 @@
+/* Sonora : ambiances animées. Les tailles sont en cqw/cqh (relatives au conteneur) :
+   la même ambiance s'affiche en plein écran et en petit aperçu dans Apparence. */
+
+#scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; container-type: size; }
+.scene-prev { position: relative; height: 92px; border-radius: 9px; overflow: hidden; container-type: size; pointer-events: none; --z: 3.2; }
+.sc { position: absolute; inset: 0; overflow: hidden; }
+.sc i { display: block; position: absolute; }
+.scene-prev .sc, .scene-prev .sc *, #scene.still .sc, #scene.still .sc * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { #scene .sc, #scene .sc * { animation: none !important; } }
+
+/* ----- couches communes ----- */
+.sc .st { inset: 0; background-repeat: repeat; background-size: calc(75cqw * var(--z, 1)) calc(56.25cqw * var(--z, 1)); }
+.sc .st1 { background-image: var(--s1); animation: tw 5s ease-in-out infinite; }
+.sc .st2 { background-image: var(--s2); animation: tw 7s ease-in-out -2s infinite; }
+.sc .st3 { background-image: var(--s3); animation: tw 3.6s ease-in-out -1s infinite; }
+.sc .st.top { -webkit-mask-image: linear-gradient(180deg, #000 0, transparent 58%); mask-image: linear-gradient(180deg, #000 0, transparent 58%); }
+@keyframes tw { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+
+.sc .fall { inset: 0; background-repeat: repeat; will-change: background-position;
+  background-size: calc(var(--tw) * var(--z, 1)) calc(var(--th) * var(--z, 1));
+  animation: fall var(--sp) linear infinite; }
+@keyframes fall { to { background-position: calc(var(--dx, 0cqw) * var(--z, 1)) calc(var(--th) * var(--z, 1) * var(--dir, 1)); } }
+
+.sc .hills { left: 0; right: 0; bottom: 0; background-repeat: no-repeat; background-size: 100% 100%; }
+.sc .hills.hl1 { height: 34cqh; background-image: var(--h1); }
+.sc .hills.hl2 { height: 22cqh; background-image: var(--h2); }
+
+/* ═════════ 1. Ciel étoilé ═════════ */
+.sc-etoile { background: radial-gradient(130% 100% at 50% 118%, #2a3c7e 0%, #101b44 40%, #050918 100%); }
+.sc-etoile .mw { left: -20cqw; top: 18cqh; width: 140cqw; height: 36cqh; transform: rotate(-24deg);
+  background: radial-gradient(closest-side, rgba(165, 180, 255, .26), rgba(130, 110, 230, .10) 55%, transparent); filter: blur(1.4cqw); }
+.sc-etoile .mw.m2 { top: 30cqh; height: 14cqh; opacity: .8; filter: blur(.7cqw); background: radial-gradient(closest-side, rgba(255, 220, 255, .22), transparent); }
+.sc-etoile .shoot { width: 13cqw; height: 1.5px; left: 72cqw; top: 10cqh; opacity: 0;
+  background: linear-gradient(90deg, transparent, #fff); transform: translate(0, 0) rotate(148deg); animation: shoot 11s linear infinite; }
+.sc-etoile .shoot.b { left: 38cqw; top: 26cqh; width: 9cqw; animation-duration: 17s; animation-delay: -7s; }
+@keyframes shoot { 0%, 90% { opacity: 0; transform: translate(0, 0) rotate(148deg); } 91% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-28cqw, 17cqw) rotate(148deg); } }
+
+/* ═════════ 2. Aurores boréales ═════════ */
+.sc-aurore { background: linear-gradient(180deg, #010610 0%, #04131f 48%, #08282d 100%); }
+.sc-aurore .au { left: -25cqw; width: 150cqw; mix-blend-mode: screen; }
+.sc-aurore .au.a { top: 8cqh; height: 52cqh; border-radius: 50%; opacity: .8; filter: blur(5cqw);
+  background: linear-gradient(90deg, transparent 0%, rgba(40, 255, 150, .6) 22%, rgba(60, 230, 205, .55) 48%, rgba(125, 90, 255, .55) 76%, transparent 100%);
+  animation: au1 17s ease-in-out infinite alternate; }
+.sc-aurore .au.b { top: 16cqh; height: 44cqh; border-radius: 50%; opacity: .7; filter: blur(4cqw);
+  background: linear-gradient(90deg, transparent 6%, rgba(90, 255, 205, .5) 30%, rgba(60, 165, 255, .5) 60%, rgba(195, 95, 255, .4) 86%, transparent);
+  animation: au2 23s ease-in-out infinite alternate; }
+.sc-aurore .au.rays { top: 4cqh; height: 58cqh; opacity: .55; filter: blur(.6cqw);
+  background: repeating-linear-gradient(90deg, rgba(80, 255, 170, 0) 0, rgba(80, 255, 170, .45) 1.6cqw, rgba(80, 255, 170, 0) 3.6cqw, rgba(100, 200, 255, 0) 5cqw, rgba(100, 200, 255, .4) 6.6cqw, rgba(100, 200, 255, 0) 9.4cqw);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 32%, #000 58%, transparent); mask-image: linear-gradient(180deg, transparent, #000 32%, #000 58%, transparent);
+  animation: au3 15s ease-in-out infinite alternate; }
+.sc-aurore .au.rays.r2 { top: 12cqh; height: 46cqh; opacity: .4;
+  background: repeating-linear-gradient(90deg, rgba(190, 120, 255, 0) 0, rgba(190, 120, 255, .45) 2cqw, rgba(190, 120, 255, 0) 4.4cqw, rgba(120, 255, 200, 0) 7cqw);
+  animation-duration: 21s; animation-direction: alternate-reverse; }
+.sc-aurore .ground { left: 0; right: 0; bottom: 0; background-repeat: no-repeat; background-size: 100% 100%; }
+.sc-aurore .ground.g1 { height: 30cqh; background-image: var(--h1); }
+.sc-aurore .ground.g2 { height: 26cqh; background-image: var(--h2); }
+@keyframes au1 { 0% { transform: translateX(-7cqw) skewX(-9deg) scaleY(.88); } 100% { transform: translateX(8cqw) skewX(10deg) scaleY(1.14); } }
+@keyframes au2 { 0% { transform: translateX(9cqw) skewX(8deg) scaleY(1.1); } 100% { transform: translateX(-8cqw) skewX(-7deg) scaleY(.85); } }
+@keyframes au3 { 0% { transform: translateX(-4cqw) scaleY(.9); opacity: .35; } 100% { transform: translateX(5cqw) scaleY(1.12); opacity: .65; } }
+
+/* ═════════ 3. Ciel bleu et nuages ═════════ */
+.sc-ciel { background: linear-gradient(180deg, #1b6fd0 0%, #3f98ec 38%, #8ecbff 74%, #d6efff 100%); }
+.sc-ciel .sunb { inset: 0; background: radial-gradient(60cqw 46cqh at 84% 6%, rgba(255, 252, 225, .95) 0%, rgba(255, 244, 190, .38) 26%, transparent 62%); }
+.sc-ciel .cl { left: 0; width: var(--w, 30cqw); height: calc(var(--w, 30cqw) * .13); background: #fff; border-radius: 999px; opacity: var(--o, .95);
+  filter: drop-shadow(0 .5cqw .9cqw rgba(105, 150, 215, .38)); transform: translateX(var(--sx, 0cqw));
+  animation: drift var(--d, 140s) linear var(--dl, 0s) infinite; }
+.sc-ciel .cl::before, .sc-ciel .cl::after { content: ""; position: absolute; background: #fff; border-radius: 50%; aspect-ratio: 1; }
+.sc-ciel .cl::before { left: 12%; bottom: 35%; width: 34%; }
+.sc-ciel .cl::after { left: 38%; bottom: 25%; width: 46%; }
+@keyframes drift { from { transform: translateX(-48cqw); } to { transform: translateX(118cqw); } }
+
+/* ═════════ 4. Coucher de soleil ═════════ */
+.sc-couchant { background: linear-gradient(180deg, #160c33 0%, #4b2381 24%, #b13d85 50%, #ff7f57 74%, #ffc46b 92%, #ffe19a 100%); }
+.sc-couchant .glow { left: -10cqw; right: -10cqw; top: 34cqh; height: 56cqh; background: radial-gradient(50% 60% at 50% 72%, rgba(255, 160, 90, .6), transparent 70%); }
+.sc-couchant .sunc { left: 50%; top: 52cqh; width: 36cqw; aspect-ratio: 1; margin-left: -18cqw; border-radius: 50%;
+  background: radial-gradient(circle, #fffbe0 0 17%, #ffe08a 28%, rgba(255, 170, 90, .75) 50%, rgba(255, 120, 70, 0) 70%); animation: pulse 9s ease-in-out infinite alternate; }
+@keyframes pulse { from { transform: scale(.96); opacity: .92; } to { transform: scale(1.06); opacity: 1; } }
+.sc-couchant .streak { height: 2.2cqh; width: 46cqw; border-radius: 50%; filter: blur(.7cqw); background: linear-gradient(90deg, transparent, rgba(255, 190, 140, .55), transparent); animation: streak 70s linear infinite alternate; }
+.sc-couchant .streak.a { top: 30cqh; left: 6cqw; }
+.sc-couchant .streak.b { top: 40cqh; left: 52cqw; width: 36cqw; animation-duration: 90s; animation-direction: alternate-reverse; opacity: .8; }
+.sc-couchant .streak.c { top: 22cqh; left: 60cqw; width: 28cqw; animation-duration: 110s; opacity: .6; }
+@keyframes streak { from { transform: translateX(-10cqw); } to { transform: translateX(12cqw); } }
+
+/* ═════════ 5. Galaxie ═════════ */
+.sc-galaxie { background: radial-gradient(120% 100% at 50% 50%, #0d0824, #04030c 72%); }
+.sc-galaxie .neb { border-radius: 50%; filter: blur(5cqw); mix-blend-mode: screen; }
+.sc-galaxie .neb.a { left: -12cqw; top: -22cqh; width: 72cqw; height: 84cqh; background: radial-gradient(closest-side, rgba(165, 65, 255, .7), rgba(165, 65, 255, 0)); animation: nebA 38s ease-in-out infinite alternate; }
+.sc-galaxie .neb.b { right: -16cqw; top: 8cqh; width: 78cqw; height: 92cqh; background: radial-gradient(closest-side, rgba(255, 60, 175, .55), rgba(255, 60, 175, 0)); animation: nebB 52s ease-in-out infinite alternate; }
+.sc-galaxie .neb.c { left: 22cqw; bottom: -34cqh; width: 62cqw; height: 74cqh; background: radial-gradient(closest-side, rgba(40, 170, 255, .55), rgba(40, 170, 255, 0)); animation: nebC 46s ease-in-out infinite alternate; }
+@keyframes nebA { to { transform: translate(14cqw, 10cqh) scale(1.15); } }
+@keyframes nebB { to { transform: translate(-12cqw, -8cqh) scale(.9) rotate(20deg); } }
+@keyframes nebC { to { transform: translate(-10cqw, -8cqh) scale(1.2); } }
+
+/* ═════════ 6. Océan profond ═════════ */
+.sc-ocean { background: linear-gradient(180deg, #0e6a9c 0%, #08416d 28%, #052a4f 56%, #020f24 100%); }
+.sc-ocean .orays { left: -20cqw; top: -12cqh; width: 140cqw; height: 92cqh; transform-origin: 50% 0; filter: blur(.8cqw);
+  background: repeating-linear-gradient(100deg, rgba(190, 240, 255, .17) 0 4cqw, rgba(190, 240, 255, 0) 4cqw 11cqw);
+  -webkit-mask-image: linear-gradient(180deg, #000, transparent 85%); mask-image: linear-gradient(180deg, #000, transparent 85%); animation: sway 14s ease-in-out infinite alternate; }
+.sc-ocean .orays.o2 { opacity: .55; background: repeating-linear-gradient(80deg, rgba(190, 240, 255, .15) 0 2.6cqw, rgba(190, 240, 255, 0) 2.6cqw 9cqw); animation-duration: 19s; animation-direction: alternate-reverse; }
+.sc-ocean .seabed { left: 0; right: 0; bottom: 0; height: 28cqh; background: linear-gradient(180deg, transparent, rgba(2, 8, 20, .85)); }
+@keyframes sway { from { transform: rotate(-4deg); } to { transform: rotate(5deg); } }
+
+/* ═════════ 7. Forêt brumeuse ═════════ */
+.sc-brume { background: linear-gradient(180deg, #0b1d18 0%, #12332a 45%, #1c4a3a 80%, #2a6450 100%); }
+.sc-brume .beam { left: -10cqw; top: -10cqh; width: 70cqw; height: 120cqh; transform: rotate(14deg); filter: blur(1.4cqw);
+  background: linear-gradient(90deg, transparent 20%, rgba(255, 255, 215, .14) 45%, transparent 70%); animation: beamA 18s ease-in-out infinite alternate; }
+.sc-brume .beam.b2 { left: 30cqw; width: 50cqw; opacity: .7; animation-duration: 25s; animation-direction: alternate-reverse; }
+@keyframes beamA { from { opacity: .45; } to { opacity: 1; } }
+.sc-brume .trees { left: 0; right: 0; bottom: 0; background-repeat: no-repeat; background-size: 100% 100%; }
+.sc-brume .trees.t1 { height: 56cqh; background-image: var(--h1); }
+.sc-brume .trees.t2 { height: 50cqh; background-image: var(--h2); }
+.sc-brume .trees.t3 { height: 42cqh; background-image: var(--h3); }
+.sc-brume .fog { left: -30cqw; width: 160cqw; filter: blur(2.2cqw); background: linear-gradient(90deg, transparent, rgba(215, 255, 232, .24) 30%, rgba(215, 255, 232, .14) 62%, transparent); animation: fog 55s linear infinite alternate; }
+.sc-brume .fog.f1 { bottom: 24cqh; height: 20cqh; }
+.sc-brume .fog.f2 { bottom: 12cqh; height: 22cqh; animation-duration: 42s; animation-direction: alternate-reverse; }
+.sc-brume .fog.f3 { bottom: -2cqh; height: 24cqh; animation-duration: 36s; opacity: .9; }
+@keyframes fog { from { transform: translateX(-12cqw); } to { transform: translateX(14cqw); } }
+
+/* ═════════ 8. Néon rétro ═════════ */
+.sc-neon { background: linear-gradient(180deg, #07010f 0%, #1a0536 40%, #5a1170 61%, #07010f 61.2%); }
+.sc-neon .sunn { left: 50%; top: 20cqh; width: 38cqh; aspect-ratio: 1; margin-left: -19cqh; border-radius: 50%;
+  background: linear-gradient(180deg, #ffe46e 8%, #ff6a8d 52%, #ff2fb8 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0 50%, transparent 50% 54%, #000 54% 62%, transparent 62% 67%, #000 67% 74%, transparent 74% 80%, #000 80% 86%, transparent 86% 92%, #000 92%);
+  mask-image: linear-gradient(180deg, #000 0 50%, transparent 50% 54%, #000 54% 62%, transparent 62% 67%, #000 67% 74%, transparent 74% 80%, #000 80% 86%, transparent 86% 92%, #000 92%); }
+.sc-neon .horizon { left: 0; right: 0; top: 61cqh; height: 2px; background: #ff7be8; box-shadow: 0 0 3cqw 1cqw rgba(255, 60, 200, .85); }
+.sc-neon .floor { left: -60cqw; right: -60cqw; top: 61cqh; height: 90cqh; transform: perspective(60cqw) rotateX(62deg); transform-origin: 50% 0;
+  background-image: linear-gradient(rgba(255, 70, 210, .85) 2px, transparent 2px), linear-gradient(90deg, rgba(255, 70, 210, .85) 2px, transparent 2px);
+  background-size: 8cqw 8cqw; animation: grid 1.8s linear infinite;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 38%); mask-image: linear-gradient(180deg, transparent, #000 38%); }
+@keyframes grid { to { background-position: 0 8cqw; } }
+.sc-neon .scan { inset: 0; background: repeating-linear-gradient(180deg, rgba(255, 255, 255, .03) 0 1px, transparent 1px 4px); }
+
+/* ═════════ 9. Pluie de nuit ═════════ */
+.sc-pluie { background: linear-gradient(180deg, #070b16 0%, #0f172a 55%, #1a2438 100%); }
+.sc-pluie .bokeh { aspect-ratio: 1; border-radius: 50%; filter: blur(1.1cqw); opacity: .5; mix-blend-mode: screen; animation: bk 7s ease-in-out infinite alternate; }
+.sc-pluie .bokeh:nth-of-type(2) { animation-delay: -2s; } .sc-pluie .bokeh:nth-of-type(3) { animation-delay: -4s; }
+@keyframes bk { from { opacity: .3; } to { opacity: .65; } }
+.sc-pluie .window { inset: 0; background: linear-gradient(180deg, rgba(180, 200, 255, .05), transparent 40%, rgba(180, 200, 255, .06)); }
+.sc-pluie .fall { inset: -25cqh -25cqw; transform: rotate(9deg); }
+
+/* ═════════ 10. Neige ═════════ */
+.sc-neige { background: linear-gradient(180deg, #0c1a2d 0%, #16304f 55%, #26507c 100%); }
+.sc-neige .snowglow { left: -10cqw; right: -10cqw; bottom: 0; height: 60cqh; background: radial-gradient(60% 80% at 50% 100%, rgba(190, 225, 255, .3), transparent 70%); }
+.sc-neige .snowground { left: -5cqw; right: -5cqw; bottom: -8cqh; height: 24cqh; border-radius: 50% 50% 0 0; background: linear-gradient(180deg, #e7f3ff, #b8d6f2); filter: blur(.4cqw); opacity: .92; }
+
+/* ═════════ 11. Cerisiers en fleurs ═════════ */
+.sc-sakura { background: linear-gradient(180deg, #2a1032 0%, #6a2a5c 38%, #d9709a 72%, #ffc3b8 100%); }
+.sc-sakura .sakuramoon { left: 66cqw; top: 12cqh; width: 15cqw; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 40% 38%, #fff9ee, #ffe3d2 70%);
+  box-shadow: 0 0 6cqw 2.2cqw rgba(255, 220, 215, .45); }
+
+/* ═════════ couleurs de l'appli pour chaque ambiance (le thème s'accorde au décor) ═════════ */
+[data-scene="etoile"] { --bg: #060a1c; --panel-solid: #0d1330; --text: #eef0ff; --muted: #9aa3d6; --accent: #8fa8ff; --accent-text: #071030; --border: rgba(160, 175, 255, .14); }
+[data-scene="aurore"] { --bg: #03101a; --panel-solid: #071a24; --text: #e8fff6; --muted: #8cc7b5; --accent: #5af0b0; --accent-text: #03140d; --border: rgba(120, 255, 200, .12); }
+[data-scene="ciel"] { --bg: #bfe2ff; --panel-solid: #f4faff; --text: #10243d; --muted: #4d6a8c; --accent: #1769d1; --accent-text: #ffffff; --hover: rgba(10, 40, 90, .08); --border: rgba(10, 40, 90, .12); }
+[data-scene="couchant"] { --bg: #1a0f2e; --panel-solid: #2a1236; --text: #fff1ea; --muted: #e0b0c0; --accent: #ff9a62; --accent-text: #2a0f10; }
+[data-scene="galaxie"] { --bg: #05030f; --panel-solid: #120a26; --text: #f3ecff; --muted: #b3a3d9; --accent: #c58bff; --accent-text: #16062b; }
+[data-scene="ocean"] { --bg: #031a2e; --panel-solid: #06263f; --text: #e6f6ff; --muted: #86b6d4; --accent: #4fd3ff; --accent-text: #021522; }
+[data-scene="brume"] { --bg: #0a1a15; --panel-solid: #10261f; --text: #e8fbef; --muted: #92bba3; --accent: #7be3a4; --accent-text: #04170d; }
+[data-scene="neon"] { --bg: #07010f; --panel-solid: #14041f; --text: #ffeaff; --muted: #c79be0; --accent: #ff4fd8; --accent-text: #1d0218; }
+[data-scene="pluie"] { --bg: #070b16; --panel-solid: #0e1526; --text: #e9efff; --muted: #8d9bbd; --accent: #7fb2ff; --accent-text: #04102a; }
+[data-scene="neige"] { --bg: #0c1a2d; --panel-solid: #12263f; --text: #f0f7ff; --muted: #9bb8d6; --accent: #bfe3ff; --accent-text: #071a2c; }
+[data-scene="sakura"] { --bg: #2a1032; --panel-solid: #3a1744; --text: #fff0f5; --muted: #e0aac4; --accent: #ff8fb8; --accent-text: #2a0a1a; }

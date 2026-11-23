@@ -1,0 +1,884 @@
+/* Sonora mobile : mise en page tactile (barre d'onglets en bas, mini-lecteur, un seul panneau à la fois) */
+html.mobile, html.mobile body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+html.mobile input, html.mobile textarea { user-select: text; -webkit-user-select: text; }
+html.mobile { --tab-h: 58px; --sab: env(safe-area-inset-bottom, 0px); --sat: max(env(safe-area-inset-top, 0px), var(--sat-js, 0px)); }
+html.mobile #app {
+  grid-template-columns: 1fr; grid-template-rows: auto 1fr; grid-template-areas: "top" "main";
+  height: 100dvh; padding: var(--sat) 0 calc(var(--tab-h) + var(--sab) + 70px) 0; gap: 6px; box-sizing: border-box;
+}
+/* en-tête : logo + recherche, rien d'autre */
+html.mobile #topbar { grid-area: top; display: flex; align-items: center; gap: 10px; padding: 8px 12px 0; height: auto; -webkit-app-region: no-drag; }
+html.mobile #topbar .tb-right { display: none; }
+html.mobile #topbar .brand { flex: 0 0 auto; height: 36px; padding: 0; }
+html.mobile #topbar .brand .logo { width: 30px; height: 30px; }
+html.mobile #topbar .brand .name, html.mobile #topbar .brand span:not(.logo) { display: none; }
+html.mobile .tb-search { flex: 1; min-width: 0; max-width: none; margin: 0; }
+html.mobile #main { grid-area: main; border-radius: 0; margin: 0; padding: 8px 14px 16px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+/* barre d'onglets en bas */
+html.mobile #sidebar {
+  position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; height: calc(var(--tab-h) + var(--sab)); padding: 0 6px var(--sab);
+  display: flex; flex-direction: row; align-items: stretch; z-index: 30; border-radius: 0; margin: 0;
+  background: rgba(14, 14, 20, .98); backdrop-filter: blur(18px); border-top: 1px solid rgba(255,255,255,.08);
+}
+html.mobile #sidebar nav { display: flex; flex: 3; flex-direction: row; }
+html.mobile #sidebar .side-title, html.mobile #sidebar #playlists { display: none; }
+html.mobile #sidebar .nav, html.mobile #sidebar .nav.bottom {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; margin: 0; padding: 6px 2px; height: auto; width: auto; position: static; font-size: 11px;
+}
+html.mobile #sidebar .nav span { display: block !important; font-size: 11px; line-height: 1; opacity: .85; }
+html.mobile #sidebar .nav.bottom { flex: 1; }
+html.mobile #sidebar .nav .ic { width: 22px; height: 22px; }
+html.mobile #btn-mini, html.mobile #account-dock, html.mobile #acct-dock { display: none !important; }
+/* mini-lecteur au-dessus des onglets : pochette, titre, like, lecture ; un tap l'ouvre en grand */
+html.mobile #player {
+  position: fixed; left: 8px; right: 8px; bottom: calc(var(--tab-h) + var(--sab) + 6px); height: 62px; z-index: 29; margin: 0; padding: 0 10px 0 8px; border-radius: 14px;
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; overflow: hidden;
+  background: rgba(30, 30, 40, .98); backdrop-filter: blur(18px); box-shadow: 0 6px 24px rgba(0,0,0,.45);
+}
+html.mobile #player .np { min-width: 0; display: flex; align-items: center; gap: 10px; }
+html.mobile #player #np-art { width: 46px; height: 46px; flex: none; border-radius: 8px; }
+html.mobile #player .np-text { min-width: 0; flex: 1; }
+html.mobile #player #np-title, html.mobile #player #np-artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.mobile #player .center { display: flex; align-items: center; }
+html.mobile #player .controls { gap: 2px; }
+html.mobile #player .controls #btn-shuffle, html.mobile #player .controls #btn-repeat, html.mobile #player .controls #btn-prev { display: none; }
+html.mobile #player .play-btn { width: 42px; height: 42px; }
+html.mobile #player .right { display: none; }
+html.mobile #player .seek { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; display: block; pointer-events: none; }
+html.mobile #player .seek span { display: none; }
+html.mobile #player .seek input { width: 100%; height: 3px; margin: 0; padding: 0; display: block; }
+/* grilles : cartes plus petites */
+html.mobile .cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+html.mobile .hm-scroll { scroll-snap-type: x proximity; }
+/* fenêtres : plein écran sur petit écran */
+html.mobile .modal .box, html.mobile .modal > div { max-width: 100vw; }
+html.mobile .set-modal { padding: 0; }
+html.mobile .toast { bottom: calc(var(--tab-h) + var(--sab) + 80px); }
+/* partie lecteur plein écran */
+html.mobile #fs { padding: var(--sat) 0 var(--sab); }
+html.mobile #sidebar > .brand { display: none !important; }
+/* boutons de fenêtre : sans objet */
+html.mobile .fs-wctl, html.mobile #wctl { display: none !important; }
+/* paramètres : plein écran, menu des sections en bandeau défilant, lignes empilées */
+html.mobile .set-modal { padding: 0; align-items: stretch; }
+html.mobile .set-win { width: 100vw; height: 100dvh; max-height: none; border-radius: 0; grid-template-columns: 1fr; grid-template-rows: auto 1fr; padding-top: var(--sat); }
+html.mobile .set-nav { display: flex !important; flex-direction: column; padding: 8px 10px 4px; border-right: 0 !important; border-bottom: 1px solid var(--border) !important; max-height: 112px; }
+html.mobile .set-q, html.mobile .set-foot, html.mobile .sn-g { display: none; }
+html.mobile .set-navlist { margin: 0; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding-bottom: 6px; }
+html.mobile .set-navlist .sn-g { display: none !important; }
+html.mobile .set-navlist .sn-box { display: contents; }
+html.mobile .sn-i { width: auto; white-space: nowrap; padding: 8px 14px; background: var(--hover); border-radius: 999px; gap: 8px; flex: none; }
+html.mobile .sn-i svg { width: 16px; height: 16px; }
+html.mobile .set-x { top: 8px; right: 10px; }
+html.mobile .set-scroll { padding: 16px 14px calc(24px + var(--sab)); }
+html.mobile .sp h2 { font-size: 22px; padding-right: 36px; }
+html.mobile .srow { flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
+html.mobile .sr-tx { flex: 1 1 100%; }
+html.mobile .srow > :not(.sr-tx) { max-width: 100%; }
+html.mobile .seg { flex-wrap: wrap; max-width: 100%; }
+html.mobile .set-win { grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+html.mobile .set-main, html.mobile .set-scroll, html.mobile .sp { min-width: 0; max-width: 100vw; }
+html.mobile #main .row { flex-wrap: wrap; row-gap: 8px; }
+html.mobile #main h1 { font-size: 28px; }
+
+/* en-tête façon Spotify : avatar du compte + champ de recherche */
+html.mobile #topbar #acct-dock { display: grid !important; width: auto; flex: none; padding: 0; order: -1; }
+html.mobile #topbar .brand { display: none; }
+html.mobile #acct-pop { position: fixed !important; top: calc(var(--sat) + 58px) !important; left: 12px !important; right: auto !important; bottom: auto !important; z-index: 80; max-width: calc(100vw - 24px); }
+/* résultats de recherche : plein écran sous l'en-tête, la liste défile, le clavier ne la cache pas */
+html.mobile #search-pop {
+  position: fixed; left: 0; right: 0; top: calc(var(--sat) + 62px); width: 100vw; max-width: none; height: calc(100dvh - var(--sat) - 62px); max-height: none; margin: 0; border-radius: 0; overflow-y: auto; padding: 8px 12px 24px; z-index: 70;
+  background: var(--panel-solid, #121218); overscroll-behavior: contain;
+}
+html.mobile .search-blur, html.mobile #search-blur { display: none !important; }
+/* clavier ouvert : on masque le mini-lecteur et les onglets */
+html.mobile.kb #sidebar, html.mobile.kb #player { display: none !important; }
+html.mobile.kb #app { padding-bottom: 0; }
+/* le haut de l'écran reste atteignable : l'en-tête est collé en haut et ne défile pas */
+html.mobile #app { overflow: hidden; }
+html.mobile #topbar { position: relative; z-index: 60; }
+
+/* =====================================================================
+   Mise en page façon Spotify
+   ===================================================================== */
+html.mobile #app { gap: 0; padding-top: var(--sat); }
+html.mobile #main { background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; padding: 4px 14px 24px; border-radius: 0; }
+html.mobile #topbar { padding: 6px 14px 6px; gap: 12px; }
+html.mobile .tb-search input { height: 42px; }
+
+/* ---- accueil ---- */
+html.mobile .rs-h { margin: 6px 0 10px; }
+html.mobile .rs-h h2 { font-size: 18px; }
+html.mobile .rs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+html.mobile .rs-t { height: 56px; padding: 0; border-radius: 8px; overflow: hidden; gap: 10px; display: flex; align-items: center; background: rgba(255,255,255,.1); border: 0; }
+html.mobile .rs-t .rs-i { width: 56px; height: 56px; flex: none; border-radius: 0; background-size: cover; }
+html.mobile .rs-t .rs-i.round { border-radius: 50%; width: 56px; height: 56px; }
+html.mobile .rs-x { min-width: 0; padding-right: 6px; }
+html.mobile .rs-n { font-size: 13px; font-weight: 700; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.2; }
+html.mobile .rs-s, html.mobile .rs-rm { display: none; }
+html.mobile .rs-t:nth-child(n+9) { display: none; }
+html.mobile .hm-h { margin: 22px 0 10px; }
+html.mobile .hm-h h2 { font-size: 20px; }
+html.mobile .hm-scroll, html.mobile .h-scroll { gap: 12px; padding-bottom: 4px; scroll-snap-type: x proximity; }
+html.mobile .hm-dm, html.mobile .hm-mix, html.mobile .hm-card, html.mobile .hm-alb, html.mobile .hm-art { flex: 0 0 148px; width: 148px; scroll-snap-align: start; }
+html.mobile .hm-dm .hm-dmc, html.mobile .hm-mix .hm-mixc { width: 148px; height: 148px; border-radius: 8px; }
+html.mobile .hm-ct { font-size: 14px; }
+html.mobile .hm-cs { font-size: 12px; }
+html.mobile .hm-scroll > button, html.mobile .hm-nav, html.mobile [data-hm=scroll] { display: none !important; }
+html.mobile .hm-tracks { display: block; background: none; padding: 0; }
+html.mobile .hm-trow { padding: 6px 0; }
+
+/* ---- lignes de titres (listes, mix, albums, playlists) ---- */
+html.mobile .track-head { display: none; }
+html.mobile .tracks { padding: 0; background: none; }
+html.mobile .track {
+  display: grid; grid-template-columns: 48px minmax(0, 1fr) 38px 38px; grid-template-areas: "img title like more" "img artist like more";
+  column-gap: 12px; row-gap: 0; align-items: center; padding: 6px 0; min-height: 60px; border-radius: 0;
+}
+html.mobile .track .num, html.mobile .track .t-dur { display: none; }
+html.mobile .track .t-img { grid-area: img; width: 48px; height: 48px; border-radius: 6px; }
+html.mobile .track .t-title { grid-area: title; align-self: end; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.mobile .track .t-artist { grid-area: artist; align-self: start; font-size: 13px; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.mobile .track [data-act=like] { grid-area: like; }
+html.mobile .track [data-act=more] { grid-area: more; }
+html.mobile .track.playing .t-title { color: var(--accent, #1ed760); }
+
+/* ---- pages mix / playlist / artiste / album ---- */
+html.mobile .page-head { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; margin: 4px 0 8px; }
+html.mobile .ph-cover { width: min(62vw, 240px); height: min(62vw, 240px); }
+html.mobile .ph-info { width: 100%; }
+html.mobile .ph-info h1 { font-size: 26px; margin: 2px 0 6px; }
+html.mobile .ph-actions { justify-content: center; margin-bottom: 12px; }
+
+/* ---- bibliothèque en liste ---- */
+html.mobile .lib-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: nowrap; }
+html.mobile .lib-top h1 { font-size: 24px; margin: 0; }
+html.mobile .lib-btns { display: flex; gap: 8px; }
+html.mobile .lib-btns .btn { height: 38px; padding: 0 14px; font-size: 13px; flex-direction: row; gap: 6px; }
+html.mobile .lib-bar { margin: 12px 0 6px; }
+html.mobile .lib-bar .chips { overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+html.mobile .lib-tools { gap: 8px; }
+html.mobile .lib-q { min-width: 0; flex: 1; }
+html.mobile .lib-grid.list { display: flex; flex-direction: column; gap: 2px; }
+html.mobile .lib-grid.list .lib-card { display: flex; align-items: center; gap: 14px; padding: 6px 0; width: 100%; }
+html.mobile .lib-grid.list .lib-cover { width: 60px; height: 60px; flex: none; border-radius: 6px; aspect-ratio: auto; }
+html.mobile .lib-grid.list .lib-play { display: none; }
+html.mobile .lib-grid:not(.list) { grid-template-columns: 1fr 1fr; gap: 12px; }
+html.mobile .lib-t { font-size: 15px; font-weight: 600; }
+html.mobile .lib-s { font-size: 13px; opacity: .7; }
+
+/* ---- paramètres façon Spotify : une liste de sections, chaque section s'ouvre en plein écran ---- */
+html.mobile .set-win { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100dvh; width: 100vw; border-radius: 0; padding-top: var(--sat); position: relative; }
+html.mobile .set-nav { display: flex !important; flex-direction: column; max-height: none; padding: 0; border: 0 !important; background: var(--bg, #0b0b0f) !important; min-height: 0; }
+html.mobile .set-nav::before { content: 'Paramètres'; display: block; padding: 18px 56px 10px 18px; font-size: 26px; font-weight: 800; }
+html.mobile .set-q { display: flex; margin: 4px 16px 6px; height: 42px; }
+html.mobile .set-foot { display: none; }
+html.mobile .set-navlist { display: block !important; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; margin: 0; padding: 0 12px calc(24px + var(--sab)); }
+html.mobile .set-navlist .sn-g { display: block !important; margin: 18px 6px 8px; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; opacity: .6; }
+html.mobile .set-navlist .sn-box { display: block; background: var(--hover); border-radius: 14px; padding: 4px; }
+html.mobile .sn-i { display: flex; width: 100%; padding: 15px 12px; border-radius: 10px; background: none; font-size: 17px; font-weight: 500; gap: 16px; white-space: normal; }
+html.mobile .sn-i svg { width: 22px; height: 22px; }
+html.mobile .sn-i::after { content: '›'; margin-left: auto; font-size: 26px; line-height: 1; opacity: .45; }
+html.mobile .sn-i.on { background: none; color: inherit; }
+html.mobile .set-main { display: none; min-height: 0; }
+html.mobile .set-scroll { padding: 64px 16px calc(28px + var(--sab)); }
+html.mobile .set-x { z-index: 5; }
+/* section ouverte */
+html.mobile #settings-modal.m-pane .set-nav { display: none !important; }
+html.mobile #settings-modal.m-pane .set-main { display: flex; }
+html.mobile #settings-modal.m-pane .set-x { display: none; }
+html.mobile #settings-modal:not(.m-pane) .m-back { display: none; }
+html.mobile .m-back { position: absolute; z-index: 6; top: calc(var(--sat) + 10px); left: 8px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.08); color: var(--text, #fff); }
+html.mobile .m-back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+html.mobile .sp h2 { font-size: 24px; text-align: left; padding-left: 0; margin-top: 2px; }
+html.mobile .srow { border-radius: 0 !important; background: none !important; padding: 14px 2px; border-bottom: 1px solid rgba(255,255,255,.06); margin: 0; }
+html.mobile .sgroup { background: none; padding: 0; }
+html.mobile .sgroup .srow { padding: 14px 2px; }
+html.mobile .sr-t { font-size: 16px; }
+html.mobile .sr-d, html.mobile .sr-s { font-size: 13px; }
+html.mobile .seg { width: 100%; }
+html.mobile .seg button { flex: 1; padding: 11px 8px; }
+
+/* =====================================================================
+   Îlot de navigation flottant, recherche, fluidité, accueil
+   ===================================================================== */
+html.mobile { --isl: 62px; --tab-h: 74px; }
+html.mobile #app { position: fixed; inset: 0; height: auto; padding: var(--sat) 0 0 0; }
+html.mobile #main { min-height: 0; padding-bottom: calc(var(--sab) + 74px + 64px + 28px) !important; }
+html.mobile #sidebar {
+  left: 14px; right: 14px; bottom: calc(var(--sab) + 12px); height: var(--isl); padding: 6px; border-radius: 28px; z-index: 70;
+  background: rgba(28, 28, 38, .97) !important; border: 1px solid rgba(255,255,255,.09); box-shadow: 0 10px 30px rgba(0,0,0,.6); backdrop-filter: none !important;
+}
+html.mobile #sidebar nav { flex: 3; gap: 2px; }
+html.mobile #sidebar .nav, html.mobile #sidebar .nav.bottom { border-radius: 22px; padding: 4px 2px; gap: 2px; }
+html.mobile #sidebar .nav.active { background: rgba(255,255,255,.16) !important; }
+html.mobile #sidebar .nav span { font-size: 10.5px; }
+html.mobile #player { bottom: calc(var(--sab) + 12px + var(--isl) + 8px); left: 14px; right: 14px; z-index: 69; backdrop-filter: none !important; background: rgba(36, 36, 48, .98); }
+/* clavier réellement ouvert seulement */
+html.mobile.kb #sidebar, html.mobile.kb #player { display: none !important; }
+
+/* recherche : grand champ en haut, pas d'avatar, onglets visibles */
+html.mobile.srch #topbar #acct-dock { display: none !important; }
+html.mobile.srch #topbar { padding: 14px 14px 8px; }
+html.mobile.srch .tb-search input { height: 52px; font-size: 17px; border-radius: 26px; }
+html.mobile #search-pop { top: calc(var(--sat) + 82px) !important; height: auto !important; bottom: 0 !important; padding: 6px 14px calc(var(--sab) + 12px + var(--isl) + 80px); z-index: 45 !important; }
+
+/* accueil : « en écoute en ce moment » sur 2 colonnes */
+html.mobile .hm-tracks { display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px 10px; background: none !important; padding: 0; }
+html.mobile .hm-trow { padding: 4px 6px 4px 4px; gap: 10px; background: rgba(255,255,255,.07); border-radius: 8px; }
+html.mobile .hm-img { width: 44px; height: 44px; }
+html.mobile .hm-d, html.mobile .hm-trow .icon-btn { display: none; }
+html.mobile .hm-t { font-size: 13px; }
+html.mobile .hm-s { font-size: 12px; }
+
+/* pages album / playlist façon Spotify : pochette centrée, infos à gauche, actions en ligne */
+html.mobile .page-head { align-items: stretch; text-align: left; }
+html.mobile .ph-cover { align-self: center; }
+html.mobile .ph-info h1 { font-size: 24px; }
+html.mobile .ph-actions { justify-content: flex-start; }
+
+/* fluidité : plus de flou, plus d'animations de fond, rendu paresseux */
+html.mobile *, html.mobile *::before, html.mobile *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html.mobile body::before, html.mobile body::after { animation: none !important; }
+html.mobile :root, html.mobile { transition: none !important; }
+html.mobile #anim-bg, html.mobile #ambient { display: none !important; }
+html.mobile .card, html.mobile .hm-card, html.mobile .hm-mix, html.mobile .hm-dm, html.mobile .track, html.mobile .lib-card { content-visibility: auto; contain-intrinsic-size: auto 64px; }
+html.mobile .card, html.mobile .hm-mix, html.mobile .hm-dm, html.mobile .lib-card, html.mobile .track { transition: none !important; }
+html.mobile .art, html.mobile .hm-mixc, html.mobile .ph-cover { box-shadow: none !important; }
+html.mobile #main { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; will-change: scroll-position; }
+html.mobile.srch #topbar { background: #0b0b0f; }
+html.mobile #topbar { background: transparent; }
+html.mobile .hm-scroll > *, html.mobile .h-scroll > * { flex: 0 0 148px !important; width: 148px !important; min-width: 0; }
+
+/* =====================================================================
+   Verre dépoli pour l'îlot, mini-lecteur opaque, recherche sur fond animé, lecteur plein écran
+   ===================================================================== */
+html.mobile #sidebar {
+  background: rgba(34, 34, 48, .50) !important; border: 1px solid rgba(255,255,255,.14); border-radius: 31px; padding: 6px; gap: 0;
+  backdrop-filter: blur(24px) saturate(1.5) !important; -webkit-backdrop-filter: blur(24px) saturate(1.5) !important;
+}
+html.mobile #sidebar nav { display: flex; flex: 3 1 0; gap: 0; margin: 0; }
+html.mobile #sidebar .nav, html.mobile #sidebar .nav.bottom {
+  flex: 1 1 0; min-width: 0; height: 100%; margin: 0; border-radius: 25px !important; background: transparent !important; color: rgba(255,255,255,.72);
+  transition: background .22s ease, color .22s ease, transform .15s ease; outline: none; -webkit-tap-highlight-color: transparent;
+}
+html.mobile #sidebar .nav:hover, html.mobile #sidebar .nav:focus { background: transparent !important; }
+html.mobile #sidebar .nav:active { transform: scale(.94); }
+html.mobile #sidebar .nav.active { background: rgba(255,255,255,.2) !important; color: #fff; }
+html.mobile.srch #sidebar .nav.active:not(#nav-search) { background: transparent !important; color: rgba(255,255,255,.72); }
+html.mobile.srch #sidebar #nav-search { background: rgba(255,255,255,.2) !important; color: #fff; }
+html.mobile #player { background: #1e1e2a !important; background-image: none !important; opacity: 1 !important; }
+
+/* page de recherche : on voit le fond animé derrière, pas un noir plein */
+html.mobile #search-pop { background: rgba(8, 8, 14, .34) !important; animation: mUp .22s ease-out; }
+@keyframes mUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+html.mobile.srch #topbar { background: transparent; }
+
+/* lecteur plein écran : bouton lecture lisible, fond moins lourd pour éviter les clignotements */
+html.mobile .fs-ctrl .fs-play { background: #fff !important; color: #000 !important; }
+html.mobile .fs-ctrl .fs-play svg, html.mobile .fs-ctrl .fs-play svg * { color: #000 !important; fill: #000 !important; stroke: none; opacity: 1 !important; display: inline-block; }
+html.mobile .fs-bg { contain: none !important; isolation: auto !important; }
+html.mobile .fs-bg i { width: 62vmax !important; height: 62vmax !important; will-change: auto !important; backface-visibility: visible !important; transition: opacity .3s linear; }
+html.mobile.srch #main { visibility: hidden; }
+
+/* =====================================================================
+   Îlot (grille 4 colonnes), marges réduites, recherche sans bande, playlist et lecteur façon Spotify
+   ===================================================================== */
+html.mobile #sidebar {
+  display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; align-items: stretch; padding: 6px;
+  background: rgba(40, 40, 58, .58) !important; border: 1px solid rgba(255,255,255,.2); border-radius: 31px;
+  backdrop-filter: blur(20px) saturate(1.6) !important; -webkit-backdrop-filter: blur(20px) saturate(1.6) !important;
+  left: 12px; right: 12px; transform: translateZ(0);
+}
+html.mobile #sidebar nav { display: contents !important; }
+html.mobile #sidebar .nav, html.mobile #sidebar .nav.bottom { width: auto !important; height: auto !important; margin: 0 !important; position: static !important; flex: none; border-radius: 25px !important; }
+html.mobile #sidebar .nav.active { background: rgba(255,255,255,.22) !important; }
+
+/* marges : l'appli prend toute la largeur */
+html.mobile #main { padding-left: 10px !important; padding-right: 10px !important; }
+html.mobile #topbar { padding: 8px 10px 4px !important; }
+html.mobile.srch #topbar { padding: 8px 10px 6px !important; background: transparent !important; }
+html.mobile.srch .tb-search input { height: 48px; }
+html.mobile #search-pop { top: 0 !important; padding: calc(var(--sat) + 66px) 10px calc(var(--sab) + 12px + var(--isl) + 80px) !important; }
+html.mobile #search-pop .lv-row, html.mobile #search-pop .rs-row { padding-left: 0; padding-right: 0; }
+
+/* ---- playlist façon Spotify ---- */
+html.mobile #main > .row:first-child .btn { font-size: 0; width: 40px; height: 40px; min-width: 0; padding: 0; border-radius: 50%; background: rgba(0,0,0,.35); display: grid; place-items: center; }
+html.mobile #main > .row:first-child .btn svg { width: 22px; height: 22px; font-size: 14px; }
+html.mobile .plp-head { flex-direction: column; align-items: stretch; gap: 14px; margin: 0 0 6px; }
+html.mobile .plp-cover { width: min(66vw, 260px); height: min(66vw, 260px); align-self: center; box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+html.mobile .plp-cover-edit { display: none; }
+html.mobile .plp-title { font-size: 28px !important; white-space: normal; margin: 0 0 6px; }
+html.mobile .ph-kind { display: none; }
+html.mobile .plp-bar { flex-wrap: nowrap; gap: 6px; margin: 4px 0 12px; }
+html.mobile .plp-search, html.mobile .plp-sort, html.mobile .pm-mode, html.mobile .plp-ib[data-pl=view], html.mobile .plp-hrow, html.mobile .plp-find { display: none !important; }
+html.mobile .plp-grow { flex: 1; order: 5; }
+html.mobile .plp-ib[data-pl=shuffle] { order: 6; width: 46px; height: 46px; }
+html.mobile .plp-ib[data-pl=menu] { order: 1; width: 46px; height: 46px; }
+html.mobile .plp-play { order: 7; width: 62px; height: 62px; font-size: 26px; }
+html.mobile .plp-track { display: grid !important; grid-template-columns: 52px minmax(0, 1fr) 40px; grid-template-areas: none; column-gap: 12px; align-items: center; padding: 6px 0; min-height: 64px; }
+html.mobile .plp-track .num, html.mobile .plp-track .plp-album, html.mobile .plp-track .plp-date, html.mobile .plp-track .t-dur, html.mobile .plp-track [data-act=like] { display: none !important; }
+html.mobile .plp-track .t-img { grid-area: auto; width: 52px; height: 52px; }
+html.mobile .plp-track .plp-tx { grid-area: auto; }
+html.mobile .plp-track .plp-tx .t-title { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.mobile .plp-track .plp-tx .t-artist { font-size: 13px; opacity: .7; }
+html.mobile .plp-track [data-act=more] { grid-area: auto; }
+
+/* ---- lecteur plein écran façon Spotify (mode pochette) ---- */
+html.mobile #fs { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+html.mobile #fs .fs-bg, html.mobile #fs .fs-shade { position: fixed; }
+html.mobile #fs.cover .fs-main { display: block; height: auto; padding: calc(var(--sat) + 66px) 14px calc(var(--sab) + 40px); }
+html.mobile #fs.cover .fs-left { display: flex; flex-direction: column; flex: none; width: 100%; gap: 16px; }
+html.mobile #fs.cover .fs-cover { border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+html.mobile #fs.cover .fs-meta { text-align: left; position: relative; padding-right: 54px; margin-top: 8px; }
+html.mobile #fs.cover .fs-title { font-size: 26px; white-space: normal; line-height: 1.1; }
+html.mobile #fs.cover .fs-artist { justify-content: flex-start; font-size: 17px; margin-top: 6px; }
+html.mobile #fs.cover .fs-ctrl { justify-content: space-between; padding: 0 4px; }
+html.mobile #fs.cover .fs-ctrl button { width: 46px; height: 46px; }
+html.mobile #fs.cover .fs-ctrl .fs-play { width: 74px; height: 74px; }
+html.mobile #fs.cover .fs-ctrl .fs-play svg.i { width: 32px; height: 32px; }
+html.mobile #fs.cover .fs-vol, html.mobile #fs.cover .fs-ly-btn, html.mobile #fs.cover .fs-lyrics { display: none !important; }
+html.mobile #fs .m-fs-like { position: absolute; right: -4px; top: 0; width: 48px; height: 48px; display: grid; place-items: center; }
+html.mobile #fs .m-fs-like svg { width: 28px; height: 28px; }
+html.mobile #fs .m-fs-like.on { color: var(--accent); }
+html.mobile #fs .m-fs-top { position: fixed; z-index: 6; top: var(--sat); left: 0; right: 0; height: 58px; display: flex; align-items: center; justify-content: center; pointer-events: none; font-weight: 700; font-size: 15px; }
+html.mobile #fs .m-fs-more { position: fixed; z-index: 7; top: calc(var(--sat) + 7px); right: 8px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; pointer-events: auto; background: rgba(255,255,255,.1); }
+html.mobile #fs .m-fs-more svg { width: 24px; height: 24px; fill: currentColor; }
+html.mobile #fs .fs-close { position: fixed; z-index: 7; top: calc(var(--sat) + 7px); left: 8px; }
+html.mobile #fs .fs-flash { position: fixed; z-index: 7; top: calc(var(--sat) + 7px); right: 60px; left: auto; }
+html.mobile #fs:not(.cover) .m-fs-top, html.mobile #fs:not(.cover) .m-fs-more, html.mobile #fs:not(.cover) #np-panel { display: none !important; }
+/* partie « artiste » : la vue « en cours de lecture » du PC, sous le lecteur */
+html.mobile #fs #np-panel { display: block !important; position: static; padding: 6px 0 0; border: 0; background: none !important; overflow: visible; grid-area: auto; margin-top: 26px; }
+html.mobile #fs #np-panel .npp-top, html.mobile #fs #np-panel .npp-cover, html.mobile #fs #np-panel .npp-title, html.mobile #fs #np-panel .npp-artist { display: none; }
+html.mobile #fs #np-panel .npp-card { background: rgba(255,255,255,.1); }
+html.mobile #fs #np-panel .npp-lyrics { background: color-mix(in srgb, var(--amb1) 62%, #50707f); border-radius: 14px; padding: 16px 16px 18px; margin-top: 0; }
+html.mobile #fs #np-panel .npp-lyrics h4 { font-size: 0; margin-bottom: 12px; }
+html.mobile #fs #np-panel .npp-lyrics h4::before { content: 'Paroles'; font-size: 17px; font-weight: 800; color: #fff; }
+html.mobile #fs #np-panel .npp-lyrics p { font-size: 24px; line-height: 1.25; color: #0b0b0f; font-weight: 800; margin: 0 0 12px; }
+html.mobile #fs #np-panel .npp-albums { gap: 12px; }
+html.mobile .plp-ib, html.mobile .plp-ib svg { color: #fff; opacity: 1; }
+html.mobile #fs #np-panel { border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; background: none !important; }
+
+/* =====================================================================
+   Passe « classe » : îlot sobre, pages sans en-tête, palette plus profonde, paroles en verre
+   ===================================================================== */
+/* îlot : sombre, sans flou (c'est le flou qui faisait des taches) */
+html.mobile #sidebar {
+  background: rgba(24, 24, 34, .94) !important; border: 1px solid rgba(255,255,255,.1);
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: 0 8px 26px rgba(0,0,0,.55);
+}
+html.mobile #sidebar .nav { color: rgba(255,255,255,.62); }
+html.mobile #sidebar .nav.active, html.mobile.srch #sidebar #nav-search { background: rgba(255,255,255,.16) !important; color: #fff; }
+html.mobile #sidebar .nav svg, html.mobile #sidebar .nav .ic { display: block; margin: 0 auto; }
+
+/* pages détail : pas de barre compte + recherche */
+html.mobile[data-v=playlist] #topbar, html.mobile[data-v=mix] #topbar, html.mobile[data-v=lvpage] #topbar, html.mobile[data-v=library] #topbar { height: 0 !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; visibility: hidden; }
+html.mobile[data-v=playlist] #main::before, html.mobile[data-v=mix] #main::before, html.mobile[data-v=lvpage] #main::before {
+  content: ''; position: fixed; left: 0; right: 0; top: 0; height: 360px; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--amb1) 70%, #1a2a3a) 0%, rgba(10,10,14,0) 100%);
+}
+html.mobile #main > .row:first-child { margin: 4px 0 10px; }
+html.mobile #main > .row:first-child .btn, html.mobile #main [data-lv=back] { font-size: 0; width: 42px; height: 42px; min-width: 0; padding: 0; border-radius: 50%; background: rgba(0,0,0,.4); display: inline-grid; place-items: center; }
+html.mobile #main > .row:first-child .btn svg, html.mobile #main [data-lv=back] svg { width: 22px; height: 22px; font-size: 14px; margin: 0; }
+
+/* barre d'actions de la playlist : icônes centrées */
+html.mobile .plp-bar { align-items: center; }
+html.mobile .plp-ib, html.mobile .plp-play { display: grid !important; place-items: center; padding: 0; line-height: 0; }
+html.mobile .plp-ib svg, html.mobile .plp-play svg { width: 26px; height: 26px; margin: 0; display: block; }
+html.mobile .plp-play svg { width: 28px; height: 28px; }
+html.mobile .plp-ib { width: 46px; height: 46px; border-radius: 50%; }
+
+/* palette : plus profonde, moins criarde */
+html.mobile body::before, html.mobile body::after { opacity: .34 !important; filter: saturate(.85); }
+html.mobile, html.mobile body { background: color-mix(in srgb, var(--amb1) 7%, #08080c) !important; }
+html.mobile .hm-mixc, html.mobile .hm-dmc { filter: saturate(.92); }
+html.mobile .rs-t, html.mobile .hm-trow { background: rgba(255,255,255,.07) !important; }
+
+/* défilements horizontaux : pas d'aimantation ni de rendu différé (ça faisait revenir à gauche) */
+html.mobile .hm-scroll, html.mobile .h-scroll, html.mobile .npp-albums, html.mobile .m-hrow { scroll-snap-type: none !important; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+html.mobile .hm-scroll > *, html.mobile .h-scroll > * { scroll-snap-align: none !important; }
+html.mobile .card, html.mobile .hm-card, html.mobile .hm-mix, html.mobile .hm-dm, html.mobile .lib-card { content-visibility: visible !important; contain-intrinsic-size: none !important; }
+
+/* espaces de l'accueil réduits */
+html.mobile #main { padding-top: 0 !important; }
+html.mobile .rs-h { margin: 2px 0 8px; }
+html.mobile .hm-h { margin: 14px 0 8px !important; }
+html.mobile .hm-h:first-child { margin-top: 0 !important; }
+html.mobile #topbar { padding-bottom: 2px !important; }
+
+/* lecteur : paroles en verre, fond animé doux */
+html.mobile #fs #np-panel .npp-lyrics {
+  background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); border-radius: 18px; padding: 16px 16px 8px;
+  backdrop-filter: blur(18px) saturate(1.4) !important; -webkit-backdrop-filter: blur(18px) saturate(1.4) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
+}
+html.mobile #fs #np-panel .npp-lyrics p { color: #fff; font-size: 22px; text-shadow: 0 1px 12px rgba(0,0,0,.25); }
+html.mobile #fs #np-panel .npp-lyrics h4::before { color: rgba(255,255,255,.85); }
+html.mobile #fs .fs-bg { background: #08080c; }
+html.mobile #fs .fs-bg i { opacity: .62 !important; scale: 1 !important; animation: mDrift 16s ease-in-out infinite alternate !important; }
+html.mobile #fs .fs-bg .b2 { animation-duration: 21s !important; animation-direction: alternate-reverse !important; }
+html.mobile #fs .fs-bg .b3 { animation-duration: 19s !important; }
+html.mobile #fs .fs-bg .b4 { animation-duration: 25s !important; animation-direction: alternate-reverse !important; opacity: .5 !important; }
+@keyframes mDrift { from { transform: translate3d(-6vmax, -4vmax, 0); } to { transform: translate3d(8vmax, 6vmax, 0); } }
+
+/* « titres de l'artiste » : défilement horizontal comme l'accueil */
+html.mobile #fs #np-panel .m-hrow { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+html.mobile #fs #np-panel .m-hrow::-webkit-scrollbar { display: none; }
+html.mobile #fs #np-panel .m-hrow .npp-row { flex: 0 0 132px; width: 132px; flex-direction: column; align-items: stretch; gap: 8px; padding: 0; }
+html.mobile #fs #np-panel .m-hrow .npp-row img { width: 132px; height: 132px; border-radius: 8px; object-fit: cover; }
+html.mobile #fs #np-panel .m-hrow .npp-row .tx { min-width: 0; }
+html.mobile #fs #np-panel .m-hrow .npp-row .t, html.mobile #fs #np-panel .m-hrow .npp-row .s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.mobile #fs #np-panel .npp-alb { flex: 0 0 132px; width: 132px; }
+html.mobile #fs #np-panel .npp-alb img { width: 132px; height: 132px; border-radius: 8px; object-fit: cover; }
+html.mobile #app { padding-left: 0 !important; padding-right: 0 !important; }
+
+/* =====================================================================
+   Feuille de menu, paroles plein écran, pages album façon Spotify, recherche réparée
+   ===================================================================== */
+/* recherche : le champ doit toujours être visible quand on cherche, même sur une page détail */
+html.mobile.srch #topbar { height: auto !important; min-height: 0 !important; padding: 8px 10px 6px !important; margin: 0 !important; visibility: visible !important; overflow: visible !important; }
+
+/* lecteur : plus de titre au centre de la barre du haut */
+html.mobile #fs .m-fs-top { display: none !important; }
+
+/* menus : feuille du bas */
+html.mobile #menu.m-sheet {
+  left: 8px !important; right: 8px !important; top: auto !important; bottom: calc(var(--sab) + 8px) !important; width: auto !important; min-width: 0; max-height: 80vh; overflow-y: auto;
+  border-radius: 26px; padding: 6px 6px 12px; background: rgba(32, 34, 36, .98) !important; border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 0 0 100vmax rgba(0,0,0,.55); z-index: 150; animation: mSheet .22s ease-out;
+}
+@keyframes mSheet { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+html.mobile #menu.m-sheet button { display: flex; align-items: center; gap: 18px; width: 100%; padding: 16px 16px; min-height: 58px; font-size: 17px; border-radius: 14px; text-align: left; }
+html.mobile #menu.m-sheet button svg { width: 26px; height: 26px; flex: none; opacity: .9; }
+html.mobile #menu.m-sheet button span { min-width: 0; overflow-wrap: anywhere; }
+html.mobile #menu.m-sheet button:active { background: rgba(255,255,255,.1); }
+.m-sh-handle { width: 44px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.3); margin: 6px auto 12px; }
+.m-sh-head { display: flex; gap: 14px; align-items: center; padding: 4px 14px 14px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.m-sh-head i { width: 54px; height: 54px; flex: none; border-radius: 6px; background: rgba(255,255,255,.1) center/cover no-repeat; }
+.m-sh-head div { min-width: 0; }
+.m-sh-head b { display: block; font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-sh-head small { display: block; margin-top: 3px; font-size: 14px; opacity: .65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* paroles en plein écran (comme Spotify) */
+html.mobile #fs:not(.cover) .fs-main { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; height: 100%; gap: 10px; padding: calc(var(--sat) + 74px) 18px calc(var(--sab) + 20px); }
+html.mobile #fs:not(.cover) .fs-left { display: contents; }
+html.mobile #fs:not(.cover) .fs-cover, html.mobile #fs:not(.cover) .fs-vol, html.mobile #fs:not(.cover) .fs-ly-btn, html.mobile #fs:not(.cover) .m-fs-like, html.mobile #fs:not(.cover) .fs-aph { display: none !important; }
+html.mobile #fs:not(.cover) .fs-meta { position: fixed; top: calc(var(--sat) + 9px); left: 64px; right: 120px; z-index: 6; margin: 0; padding: 0; text-align: center; }
+html.mobile #fs:not(.cover) .fs-title { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.mobile #fs:not(.cover) .fs-artist { justify-content: center; font-size: 14px; margin-top: 2px; }
+html.mobile #fs:not(.cover) .fs-lyrics { order: 1; flex: 1 1 0; min-height: 0; width: 100%; max-width: none; height: auto; }
+html.mobile #fs:not(.cover) .fs-seek { order: 2; }
+html.mobile #fs:not(.cover) .fs-ctrl { order: 3; justify-content: center; }
+html.mobile #fs:not(.cover) .fs-ctrl button:not(.fs-play) { display: none; }
+html.mobile #fs:not(.cover) .fs-ctrl .fs-play { width: 74px; height: 74px; }
+html.mobile #fs:not(.cover) .fs-ly-in { padding: 8vh 0 22vh; }
+html.mobile #fs:not(.cover) .ly { font-size: 27px; line-height: 1.22; margin-bottom: 20px; }
+html.mobile #fs:not(.cover) .fs-lyrics.plain .ly { font-size: 25px; opacity: 1; }
+html.mobile #fs:not(.cover) .m-fs-more { display: grid !important; }
+html.mobile #fs:not(.cover) .fs-bg i { opacity: .8 !important; }
+
+/* pages album / playlist / mix : fond sombre, haut teinté par la pochette */
+html.mobile[data-v=playlist] #main::before, html.mobile[data-v=mix] #main::before, html.mobile[data-v=lvpage] #main::before {
+  top: 0; bottom: 0; height: auto; background: linear-gradient(180deg, var(--pg, #2c3550) 0, #121216 520px), #121216;
+}
+html.mobile #lv-page .lv-head { flex-direction: column; align-items: stretch; gap: 14px; margin: 0 0 8px; }
+html.mobile #lv-page .lv-cover.big { width: min(66vw, 260px); align-self: center; margin: 0; box-shadow: 0 8px 30px rgba(0,0,0,.45); }
+html.mobile #lv-page .lv-head h1 { font-size: 26px; line-height: 1.1; margin: 2px 0 8px; }
+html.mobile #lv-page .lv-head .mut { font-size: 14px; }
+html.mobile #lv-page h2 { font-size: 20px; margin: 20px 0 10px; }
+html.mobile .m-actbar { display: flex; align-items: center; gap: 4px; margin: 4px 0 14px; }
+html.mobile .m-grow { flex: 1; }
+html.mobile .m-ab { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
+html.mobile .m-ab svg { width: 26px; height: 26px; fill: currentColor; display: block; }
+html.mobile .m-ab[data-m=shuf] svg { fill: none; }
+html.mobile .m-ab.play { width: 62px; height: 62px; background: var(--accent, #1ed760); color: var(--accent-text, #000); }
+html.mobile .m-ab.play svg { width: 30px; height: 30px; }
+html.mobile #lv-page .lv-row { padding: 8px 0; gap: 14px; }
+html.mobile #lv-page .lv-row .lv-t { font-size: 16px; font-weight: 500; }
+html.mobile #lv-page .lv-row .lv-s { font-size: 13px; opacity: .65; }
+html.mobile #lv-page .lv-row .lv-m, html.mobile #lv-page .lv-row .lv-x { opacity: 1; }
+html.mobile #lv-page:has(.lv-cover.big:not(.round)) .lv-row .lv-img { display: none; }
+html.mobile #lv-page .lv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* ===== v-final : îlot en verre dépoli, flèche centrée, bibliothèque façon Spotify ===== */
+html.mobile #sidebar {
+  left: 22px !important; right: 22px !important; padding: 5px !important; gap: 0 !important; border-radius: 32px !important;
+  background: rgba(70, 72, 96, .34) !important; border: 1px solid rgba(255,255,255,.22) !important;
+  backdrop-filter: blur(26px) saturate(1.7) !important; -webkit-backdrop-filter: blur(26px) saturate(1.7) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.18) !important; transform: none !important; align-items: stretch !important;
+}
+html.mobile #sidebar .nav, html.mobile #sidebar .nav.bottom { height: 100% !important; align-self: stretch !important; border-radius: 27px !important; justify-content: center; box-sizing: border-box; }
+html.mobile #sidebar .nav { color: rgba(255,255,255,.7); }
+html.mobile #sidebar .nav.active, html.mobile.srch #sidebar #nav-search { background: rgba(255,255,255,.24) !important; color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+html.mobile #player { left: 22px !important; right: 22px !important; }
+
+html.mobile #main > .row:first-child .btn, html.mobile #main [data-lv=back] {
+  display: grid !important; place-items: center; gap: 0 !important; line-height: 0; padding: 0 !important; text-indent: 0; justify-content: center; align-content: center;
+}
+html.mobile #main > .row:first-child .btn svg, html.mobile #main [data-lv=back] svg { display: block; margin: 0 !important; justify-self: center; align-self: center; }
+
+html.mobile[data-v=collection] #topbar { height: 0 !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; visibility: hidden; }
+html.mobile.srch[data-v=collection] #topbar { height: auto !important; padding: 8px 10px 6px !important; visibility: visible !important; overflow: visible !important; }
+html.mobile[data-v=collection] #main { padding-top: calc(var(--sat) + 10px) !important; }
+html.mobile .lib-top { display: grid !important; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 4px 12px; }
+html.mobile .lib-top #acct-dock { display: grid !important; width: 40px; height: 40px; order: 0; margin: 0; }
+html.mobile .lib-top h1 { font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+html.mobile .lib-btns { display: contents !important; }
+html.mobile .m-lsearch { width: 40px; height: 40px; border: 0; background: transparent; color: #fff; display: grid; place-items: center; padding: 0; }
+html.mobile .m-lsearch svg { width: 26px; height: 26px; }
+html.mobile .lib-btns .btn[data-act=new-playlist] { font-size: 0 !important; gap: 0 !important; width: 40px; height: 40px !important; padding: 0 !important; border-radius: 50%; background: transparent !important; display: grid; place-items: center; color: #fff; border: 0; }
+html.mobile .lib-btns .btn[data-act=new-playlist] svg { width: 28px; height: 28px; margin: 0; }
+html.mobile .lib-btns .btn[data-act=import-playlist] { grid-row: 2; grid-column: 1 / -1; justify-self: start; height: 34px !important; padding: 0 16px !important; border-radius: 17px; background: rgba(255,255,255,.1) !important; font-size: 13px !important; margin: 4px 0 0; }
+html.mobile .lib-bar { display: block; margin: 14px 0 8px; }
+html.mobile .lib-bar .chips { display: flex; gap: 8px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; margin: 0 -10px; padding: 0 10px; }
+html.mobile .lib-bar .chips::-webkit-scrollbar { display: none; }
+html.mobile .lib-tools { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+html.mobile .lib-q { display: none !important; }
+html.mobile .lib-tools [data-act=lib-sort] { background: transparent !important; border: 0 !important; padding: 0 !important; font-weight: 700; font-size: 14px; }
+html.mobile .lib-tools [data-act=lib-view] { background: transparent; border: 0; }
+html.mobile .lib-grid.list .lib-cover { width: 64px; height: 64px; border-radius: 4px; }
+html.mobile .lib-grid.list .lib-card { padding: 7px 0; gap: 14px; background: transparent !important; }
+html.mobile #app { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: auto minmax(0, 1fr) !important; grid-template-areas: "top" "main" !important; padding-left: 0 !important; padding-right: 0 !important; }
+html.mobile #topbar { grid-area: top !important; }
+html.mobile #main { grid-area: main !important; }
+
+/* feuille « Sauvegarder dans » */
+#m-save { position: fixed; inset: 0; z-index: 400; font-family: inherit; color: #fff; }
+#m-save .ms-bg { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+#m-save .ms-card { position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--sat, 0px) + 40px); background: #1c1c20; border-radius: 22px 22px 0 0; display: flex; flex-direction: column; padding: 0 18px; }
+#m-save .m-sh-handle { width: 44px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.3); margin: 10px auto 18px; }
+#m-save button { background: none; border: 0; color: #fff; font: inherit; }
+#m-save .ms-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; }
+#m-save .ms-ttl { display: flex; justify-content: space-between; align-items: center; margin: 22px 0 18px; }
+#m-save .ms-ttl h2 { margin: 0; font-size: 21px; font-weight: 800; }
+#m-save .ms-ttl button { color: #1ed760; font-weight: 700; font-size: 15px; }
+#m-save .ms-find label { display: flex; align-items: center; gap: 10px; background: #2f2f34; border-radius: 6px; padding: 0 12px; height: 42px; }
+#m-save .ms-find svg { width: 20px; height: 20px; flex: none; }
+#m-save .ms-find input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: #fff; font: inherit; font-weight: 600; font-size: 15px; }
+#m-save .ms-list { flex: 1; overflow-y: auto; margin: 10px -18px 0; padding: 0 18px 110px; }
+#m-save .ms-row { display: flex; align-items: center; gap: 14px; padding: 7px 0; }
+#m-save .ms-row i { width: 54px; height: 54px; border-radius: 4px; background: #34343a center/cover; flex: none; }
+#m-save .ms-row div { flex: 1; min-width: 0; }
+#m-save .ms-row b { display: block; font-weight: 500; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#m-save .ms-row small { opacity: .65; font-size: 14px; }
+#m-save .ms-add { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,.7); position: relative; flex: none; box-sizing: border-box; }
+#m-save .ms-add::before, #m-save .ms-add::after { content: ''; position: absolute; left: 50%; top: 50%; background: rgba(255,255,255,.85); transform: translate(-50%, -50%); }
+#m-save .ms-add::before { width: 14px; height: 2px; } #m-save .ms-add::after { width: 2px; height: 14px; }
+#m-save .ms-row.on .ms-add { background: #1ed760; border-color: #1ed760; }
+#m-save .ms-row.on .ms-add::before, #m-save .ms-row.on .ms-add::after { background: #000; }
+#m-save .ms-row.on .ms-add::after { width: 7px; height: 13px; background: none; border: solid #000; border-width: 0 2.5px 2.5px 0; transform: translate(-50%, -62%) rotate(45deg); }
+#m-save .ms-row.on .ms-add::before { display: none; }
+#m-save .ms-ok { position: absolute; left: 50%; bottom: calc(var(--sab, 0px) + 22px); transform: translateX(-50%); background: #1ed760 !important; color: #000 !important; font-weight: 800; font-size: 17px; padding: 0 44px; height: 52px; border-radius: 26px; }
+
+/* recherches récentes : photos plus petites */
+html.mobile .search-pop .lv-img, html.mobile #search-pop .lv-img { width: 44px !important; height: 44px !important; flex: none !important; }
+html.mobile #search-pop .lv-row { padding: 6px 8px; }
+html.mobile #search-pop [data-lv=hist] .lv-img { width: 44px !important; height: 44px !important; }
+/* île : aucun contour parasite sur les onglets */
+html.mobile #sidebar .nav { outline: none !important; border: 0 !important; -webkit-tap-highlight-color: transparent; }
+html.mobile #sidebar .nav:focus, html.mobile #sidebar .nav:focus-visible, html.mobile #sidebar .nav:hover { outline: none !important; border: 0 !important; box-shadow: none; }
+html.mobile #sidebar .nav.active, html.mobile.srch #sidebar #nav-search { box-shadow: none !important; }
+/* bibliothèque : loupe collée au « + » */
+html.mobile .lib-top { grid-template-columns: auto 1fr auto auto; column-gap: 0; }
+html.mobile .lib-top #acct-dock { margin-right: 12px; }
+html.mobile .m-lsearch { margin-right: 6px; }
+
+/* ===== v4 ===== */
+/* bibliothèque : loupe tout à droite, collée au « + » */
+html.mobile .lib-top #acct-dock { grid-column: 1; grid-row: 1; }
+html.mobile .lib-top h1 { grid-column: 2; grid-row: 1; }
+html.mobile .lib-top .m-lsearch { grid-column: 3; grid-row: 1; margin: 0 2px 0 0; }
+html.mobile .lib-btns .btn[data-act=new-playlist] { grid-column: 4; grid-row: 1; }
+html.mobile .lib-top { grid-template-columns: auto minmax(0, 1fr) auto auto !important; }
+html.mobile .lib-top:not(:has(#acct-dock)) h1 { grid-column: 1 / 3; }
+/* paramètres : plus de ligne grise, île visible */
+html.mobile .sn-i, html.mobile .sn-i.on, html.mobile .sn-i:hover, html.mobile .sn-i:focus { background: none !important; color: inherit !important; box-shadow: none !important; outline: none !important; }
+html.mobile .sn-i:active { background: rgba(255,255,255,.07) !important; }
+html.mobile.m-setopen #app { z-index: auto !important; }
+html.mobile.m-setopen #settings-modal .set-navlist, html.mobile.m-setopen #settings-modal .set-scroll { padding-bottom: calc(var(--sab) + 170px) !important; }
+/* lecteur : la pochette descend, les 3 icônes restent en haut */
+html.mobile #fs.cover .fs-main { padding-top: calc(var(--sat) + 150px) !important; }
+/* feuille « Sauvegarder dans » : verre dépoli aux couleurs de l'appli */
+#m-save .ms-bg { background: rgba(6,6,14,.5) !important; }
+#m-save .ms-card { background: linear-gradient(180deg, rgba(60,56,96,.5), rgba(18,18,30,.72)) !important; backdrop-filter: blur(30px) saturate(1.6) !important; -webkit-backdrop-filter: blur(30px) saturate(1.6) !important; border: 1px solid rgba(255,255,255,.16); border-bottom: 0; box-shadow: 0 -10px 40px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.2); }
+#m-save .ms-ttl button, #m-save .ms-top button[data-k=done] { color: var(--accent, #a99bff) !important; }
+#m-save .ms-find label { background: rgba(255,255,255,.1) !important; border: 1px solid rgba(255,255,255,.12); border-radius: 16px !important; height: 44px; }
+#m-save .ms-row { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 18px; padding: 8px 12px 8px 8px !important; margin-bottom: 8px; }
+#m-save .ms-row i { border-radius: 12px !important; background-color: rgba(255,255,255,.1) !important; }
+#m-save .ms-row.on { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.28); }
+#m-save .ms-row.on .ms-add { background: var(--accent, #a99bff) !important; border-color: transparent !important; }
+#m-save .ms-ok { background: rgba(255,255,255,.2) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.3) !important; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+#m-save .ms-row.on .ms-add::after { border-color: #fff !important; }
+html.mobile.m-setopen #sidebar .nav.active { background: transparent !important; color: rgba(255,255,255,.7) !important; }
+html.mobile.m-setopen #sidebar .nav.bottom { background: rgba(255,255,255,.24) !important; color: #fff !important; }
+/* ===== v5 ===== */
+html.mobile #fs.cover .fs-main { padding-top: calc(var(--sat) + 120px) !important; }
+/* recherches récentes (accueil) : image plus petite, bien dans le cadre */
+html.mobile .rs-t { overflow: hidden; padding: 9px 10px !important; }
+html.mobile .rs-i { width: 36px !important; height: 36px !important; min-width: 36px; max-width: 36px; flex: none !important; }
+/* mini-lecteur en verre dépoli */
+html.mobile #player {
+  background: rgba(64, 62, 96, .4) !important; border: 1px solid rgba(255,255,255,.2) !important;
+  backdrop-filter: blur(22px) saturate(1.7) !important; -webkit-backdrop-filter: blur(22px) saturate(1.7) !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.16) !important;
+}
+/* paroles : plus fluides (pas de flou par ligne, calques dédiés) */
+html.mobile #fs .ly { filter: none !important; transition: opacity .3s, transform .4s cubic-bezier(.2,.8,.2,1) !important; will-change: transform, opacity; text-shadow: none !important; }
+html.mobile #fs .fs-ly-in { will-change: transform; transition: transform .45s cubic-bezier(.2,.8,.2,1) !important; }
+html.mobile #fs .ly .w { transition: none !important; }
+/* éclair : seulement avec les paroles, et il fait réagir le fond */
+html.mobile #fs.cover .fs-flash { display: none !important; }
+html.mobile #fs .fs-bg i { scale: calc(1 + var(--bass, 0) * .16) !important; opacity: calc(.5 + var(--bass, 0) * .45) !important; }
+html.mobile #fs:not(.cover) .fs-bg i { opacity: calc(.6 + var(--bass, 0) * .4) !important; }
+html.mobile #fs .fs-flash.off { opacity: .45; }
+/* réglage du décalage des paroles : en bas à droite */
+html.mobile #fs .fs-sync { position: fixed !important; top: auto !important; left: auto !important; transform: none !important; right: 14px; bottom: calc(var(--sab) + 40px); z-index: 8; background: rgba(255,255,255,.12); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-radius: 999px; padding: 4px 6px; }
+html.mobile #fs .fs-sync span { font-size: 12px; min-width: 40px; text-align: center; }
+
+/* ===== v6 ===== */
+html.mobile #fs.cover .fs-main { padding-top: calc(var(--sat) + 108px) !important; }
+html.mobile .rs-t { padding: 8px 10px !important; overflow: visible; }
+html.mobile .rs-i { width: 40px !important; height: 40px !important; min-width: 40px; max-width: 40px; flex: none !important; }
+html.mobile .rs-i.round { width: 48px !important; height: 48px !important; min-width: 48px; max-width: 48px; }
+html.mobile #fs:not(.cover) .fs-meta { left: 108px !important; right: 108px !important; }
+
+/* ===== v7 ===== */
+html.mobile .track .t-artist { display: block !important; }
+html.mobile .plp-cover.mosaic, html.mobile .ph-cover.mosaic, html.mobile .lib-cover.mosaic { display: grid !important; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; align-items: stretch !important; justify-items: stretch; overflow: hidden; }
+html.mobile .plp-cover.mosaic i, html.mobile .ph-cover.mosaic i, html.mobile .lib-cover.mosaic i { display: block; width: 100%; height: 100%; background-size: cover; background-position: center; }
+/* plus de grosse barre de défilement à droite */
+html.mobile, html.mobile * { scrollbar-width: none !important; }
+html.mobile ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+/* paroles : flou autour de la ligne chantée */
+html.mobile #fs .ly { filter: blur(var(--bl, 0px)) !important; transition: opacity .3s, transform .4s cubic-bezier(.2,.8,.2,1) !important; }
+html.mobile #fs .ly.on, html.mobile #fs .fs-lyrics.plain .ly { filter: none !important; }
+/* recherches récentes : pochettes d'album / single en grand (comme Spotify), artistes en rond */
+html.mobile .rs-t { padding: 0 34px 0 0 !important; overflow: hidden !important; min-height: 56px; gap: 10px; }
+html.mobile .rs-i { width: 56px !important; height: 56px !important; min-width: 56px; max-width: 56px; border-radius: 0 !important; }
+html.mobile .rs-i.round { width: 48px !important; height: 48px !important; min-width: 48px; max-width: 48px; border-radius: 50% !important; margin: 4px 0 4px 6px; }
+html.mobile .track .t-artist.plp-date, html.mobile .track .t-artist.plp-album { display: none !important; }
+
+/* ===== v8 ===== */
+html.mobile #fs, html.mobile #fs * { scrollbar-width: none !important; -ms-overflow-style: none; }
+html.mobile #fs::-webkit-scrollbar, html.mobile #fs *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+/* pas de gris qui reste après un appui */
+html.mobile .track:hover, html.mobile .track:focus, html.mobile .track:focus-within, html.mobile .lv-row:hover, html.mobile .lv-row:focus, html.mobile .plp-track:hover, html.mobile .lib-card:hover, html.mobile .queue-row:hover { background: transparent !important; }
+html.mobile .rs-t:hover { background: rgba(255,255,255,.06) !important; }
+html.mobile .track:active, html.mobile .lv-row:active, html.mobile .lib-card:active { background: rgba(255,255,255,.08) !important; transition: none; }
+html.mobile .track, html.mobile .lv-row, html.mobile .lib-card, html.mobile .nav, html.mobile .btn, html.mobile .chip { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+/* bibliothèque : loupe et « + » alignés, bouton lecture centré et toujours visible */
+html.mobile .lib-top .m-lsearch, html.mobile .lib-btns .btn[data-act=new-playlist] { align-self: center !important; margin-top: 0 !important; margin-bottom: 0 !important; height: 40px !important; width: 40px !important; line-height: 0; transform: none !important; position: static !important; top: auto !important; }
+html.mobile .lib-top .m-lsearch svg, html.mobile .lib-btns .btn[data-act=new-playlist] svg { display: block; width: 26px; height: 26px; margin: 0 !important; }
+html.mobile .lib-grid:not(.list) .lib-play { opacity: 1 !important; transform: none !important; display: grid !important; place-items: center; width: 40px; height: 40px; padding: 0; right: 10px !important; top: auto !important; bottom: auto; }
+html.mobile .lib-grid:not(.list) .lib-card { position: relative; }
+html.mobile .lib-play svg.i { width: 18px !important; height: 18px !important; margin: 0 !important; transform: translateX(1px) !important; display: block; }
+html.mobile .lib-card.m-playing .lib-t { color: color-mix(in srgb, var(--amb1, #8b8cff) 55%, #fff) !important; }
+/* mode léger (téléphones peu puissants) */
+html.lite #sidebar, html.lite #player, html.lite #m-save .ms-card, html.lite #fs .m-fs-more, html.lite #fs .fs-sync { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html.lite #sidebar { background: rgba(42,42,64,.94) !important; }
+html.lite #player { background: rgba(46,44,72,.96) !important; }
+html.lite #m-save .ms-card { background: #1d1c2c !important; }
+html.lite #fs .fs-bg i { animation: none !important; scale: 1 !important; }
+html.lite #fs .ly { filter: none !important; }
+html.lite *, html.lite *::before, html.lite *::after { box-shadow: none !important; text-shadow: none !important; transition-duration: 0s !important; }
+html.mobile .lib-btns .btn[data-act=new-playlist] { display: flex !important; align-items: center; justify-content: center; }
+
+/* ===== v9 ===== */
+/* accueil direct : pas d'écran « Bonne nuit » (l'accueil réel arrive dans #home-root) + pas de recherche en haut */
+html.mobile[data-v=home] #main > h1, html.mobile[data-v=home] #main > p.sub, html.mobile[data-v=home] #main > .row, html.mobile[data-v=home] #main > h2, html.mobile[data-v=home] #main > .cards, html.mobile[data-v=home] #main > .empty { display: none !important; }
+html.mobile:not(.srch) #topbar .tb-search { display: none !important; }
+/* bibliothèque : compte et titre sur la même ligne, pas de bouton lecture sur les cartes */
+html.mobile .lib-top { align-items: center !important; }
+html.mobile .lib-top h1 { line-height: 40px !important; height: 40px; margin: 0 !important; padding: 0 !important; align-self: center; display: flex; align-items: center; }
+html.mobile .lib-top #acct-dock { align-self: center !important; margin-top: 0 !important; margin-bottom: 0 !important; }
+html.mobile .lib-play { display: none !important; }
+/* triangle du bouton lecture des playlists centré */
+html.mobile .plp-play svg { transform: translateX(-.8px) !important; margin: 0 !important; }
+/* appui : gris seulement au tap bref (classe posée par le JS), jamais en glissant ni en appui long */
+html.mobile .track:active, html.mobile .lv-row:active, html.mobile .lib-card:active, html.mobile .plp-track:active, html.mobile .queue-row:active, html.mobile .rs-t:active, html.mobile .rs-t:hover { background: transparent !important; }
+html.mobile .m-tap { background: rgba(255,255,255,.09) !important; }
+html.mobile .track, html.mobile .lv-row, html.mobile .lib-card, html.mobile .plp-track, html.mobile .queue-row, html.mobile .rs-t { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+/* fluidité : pas d'ombre de texte, flou plus léger, couches GPU */
+html.mobile *, html.mobile *::before, html.mobile *::after { text-shadow: none !important; }
+html.mobile #sidebar, html.mobile #player { backdrop-filter: blur(14px) !important; -webkit-backdrop-filter: blur(14px) !important; transform: translateZ(0); will-change: transform; }
+html.mobile #main { contain: layout style; overscroll-behavior: contain; }
+html.mobile .hm-scroll { contain: layout; }
+html.mobile img, html.mobile .art, html.mobile .lib-cover { image-rendering: auto; }
+
+/* ===== v10 ===== */
+/* écran d'accueil d'origine (Bonne nuit…) : caché dès le premier rendu, sans attendre data-v */
+html.mobile #main:has(> h1:first-child + p.sub) > * { display: none !important; }
+/* pas de bouton lecture sur les cartes de la bibliothèque (spécificité > règle précédente) */
+html.mobile .lib-grid:not(.list) .lib-play, html.mobile .lib-grid .lib-play, html.mobile .lib-card .lib-play, html.mobile #main .lib-play { display: none !important; }
+/* accueil : pas d'icône lecture « survol » collée sur les titres */
+html.mobile .hm-trow:hover .hm-play { display: none !important; }
+html.mobile .hm-trow:hover { background: transparent !important; }
+html.mobile .hm-album:hover .hm-cover, html.mobile .hm-artist:hover .hm-cover, html.mobile .hm-mix:hover .hm-mixc, html.mobile .hm-dm:hover .hm-dmc { transform: none !important; box-shadow: none; }
+html.mobile .hm-trow:active { background: transparent !important; }
+html.mobile .lib-top #acct-dock { transform: translateY(-4px) !important; }
+
+/* ===== v11 : titre en cours dans une liste ===== */
+html.mobile .track.playing .t-title, html.mobile .plp-track.playing .t-title { color: color-mix(in srgb, var(--m-pc, var(--amb1, #8b8cff)) 55%, #fff) !important; }
+html.mobile .track .t-img, html.mobile .plp-track .t-img { position: relative; overflow: hidden; }
+html.mobile .track.playing .t-img::before { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,.5); border-radius: inherit; }
+html.mobile .track.playing .t-img::after { content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 16px; margin: -8px 0 0 -9px;
+  background: linear-gradient(#fff,#fff) 0 100%/4px 60% no-repeat, linear-gradient(#fff,#fff) 7px 100%/4px 100% no-repeat, linear-gradient(#fff,#fff) 14px 100%/4px 40% no-repeat; border-radius: 1px; }
+
+/* ===== v12 ===== */
+/* égaliseur animé quand ça joue (classe m-pl posée par le JS), teinte de la playlist */
+html.mobile .track.playing .t-img::after { background-image: linear-gradient(#fff,#fff), linear-gradient(#fff,#fff), linear-gradient(#fff,#fff); background-position: 0 100%, 7px 100%, 14px 100%; background-repeat: no-repeat; background-size: 4px 60%, 4px 100%, 4px 40%; }
+html.mobile.m-pl .track.playing .t-img::after { animation: mBars 1s ease-in-out infinite; }
+@keyframes mBars {
+  0%, 100% { background-size: 4px 60%, 4px 100%, 4px 40%; }
+  33% { background-size: 4px 100%, 4px 45%, 4px 85%; }
+  66% { background-size: 4px 35%, 4px 85%, 4px 100%; }
+}
+/* fond de page uni : plus de bande de couleur en haut ni de grand vide en bas */
+html.mobile #main, html.mobile #main.plp-view, html.mobile body.has-amb #main { background-image: none !important; background-color: transparent !important; }
+html.mobile[data-v=playlist] #app::before, html.mobile[data-v=liked] #app::before, html.mobile[data-v=mix] #app::before, html.mobile[data-v=library] #app::before, html.mobile[data-v=queue] #app::before {
+  content: ""; position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--m-pc, var(--amb1, #4a4aa0)) 55%, transparent) 0, color-mix(in srgb, var(--m-pc, var(--amb1, #4a4aa0)) 22%, transparent) 45%, transparent 100%);
+}
+html.mobile #main::before, html.mobile #main::after { display: none !important; }
+
+/* ===== v13 ===== */
+/* île et mini-lecteur : verre flouté qui laisse voir ce qu'il y a derrière (même en mode léger) */
+html.mobile #sidebar, html.mobile.lite #sidebar {
+  background: linear-gradient(165deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,.08) 34%, rgba(255,255,255,.04) 64%, rgba(255,255,255,.16) 100%) !important;
+  border: 1px solid rgba(255,255,255,.26) !important;
+  backdrop-filter: blur(20px) saturate(1.6) !important; -webkit-backdrop-filter: blur(20px) saturate(1.6) !important;
+  box-shadow: 0 8px 22px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.38), inset 0 -1px 0 rgba(255,255,255,.08) !important;
+}
+html.mobile #player, html.mobile.lite #player {
+  background: linear-gradient(165deg, rgba(255,255,255,.26) 0%, rgba(255,255,255,.07) 38%, rgba(255,255,255,.04) 66%, rgba(255,255,255,.14) 100%) !important;
+  border: 1px solid rgba(255,255,255,.24) !important;
+  backdrop-filter: blur(20px) saturate(1.6) !important; -webkit-backdrop-filter: blur(20px) saturate(1.6) !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.34) !important;
+}
+html.mobile.lite #sidebar .nav.active { background: rgba(255,255,255,.22) !important; }
+/* pas de bouton retour qui reste affiché au-dessus de la recherche */
+html.mobile.srch #main > .row:first-child, html.mobile.srch #main [data-lv=back], html.mobile.srch #main .m-back { display: none !important; }
+/* plus de ligne grisée « sélectionnée » après lecture d'un autre titre */
+html.mobile .track.sel, html.mobile .plp-track.sel, html.mobile .hm-trow.sel, html.mobile .lv-row.sel { background: transparent !important; }
+html.mobile .track.playing, html.mobile .plp-track.playing { background: color-mix(in srgb, var(--m-pc, var(--amb1, #8b8cff)) 22%, transparent) !important; border-radius: 10px; }
+
+/* ===== v14 ===== */
+/* feuille « Sauvegarder dans » : mosaïque des 4 premières pochettes + coche visible */
+#m-save .ms-row i.mos { display: grid !important; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; overflow: hidden; background: none !important; }
+#m-save .ms-row i.mos s { display: block; background: center/cover no-repeat; }
+#m-save .ms-row.on .ms-add { background: #fff !important; border-color: #fff !important; }
+#m-save .ms-row.on .ms-add::after { border-color: #14141c !important; border-width: 0 2.6px 2.6px 0 !important; }
+/* changement de titre : plus de saccade (couches d'ambiance 4x plus petites, pas de fondu de couleur) */
+html.mobile body::before, html.mobile body::after { inset: 0 !important; transition: none !important; will-change: auto !important; }
+html.mobile, html.mobile body { transition: none !important; }
+html.mobile #fs .fs-bg i { will-change: transform, opacity; }
+
+/* ===== v15 : remplissage des paroles sans repeindre le texte ===== */
+html.mobile #fs .ly .w { position: relative; background: none !important; -webkit-background-clip: border-box !important; background-clip: border-box !important; color: rgba(255,255,255,.38) !important; }
+html.mobile #fs .ly .w::after { content: attr(data-w); position: absolute; left: 0; top: 0; white-space: pre; color: #fff; clip-path: inset(0 calc((1 - var(--f, 0)) * 100%) 0 0); will-change: clip-path; }
+html.mobile #fs .ly.past .w { color: rgba(255,255,255,.38) !important; }
+html.mobile #fs .fs-lyrics.plain .ly .w { color: #fff !important; }
+html.mobile #fs .fs-lyrics.plain .ly .w::after { display: none; }
+
+/* ===== v16 : fondu de couleur ===== */
+#m-amb { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.m-amb-l { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s ease; will-change: opacity;
+  background:
+    radial-gradient(circle 78vmax at 32% 38%, color-mix(in srgb, var(--a1) 66%, transparent) 0%, color-mix(in srgb, var(--a1) 30%, transparent) 55%, transparent 100%),
+    radial-gradient(circle 78vmax at 68% 62%, color-mix(in srgb, var(--a3) 58%, transparent) 0%, color-mix(in srgb, var(--a3) 26%, transparent) 55%, transparent 100%),
+    radial-gradient(circle 78vmax at 62% 30%, color-mix(in srgb, var(--a2) 62%, transparent) 0%, color-mix(in srgb, var(--a2) 28%, transparent) 55%, transparent 100%),
+    radial-gradient(circle 78vmax at 38% 70%, color-mix(in srgb, var(--a4) 58%, transparent) 0%, color-mix(in srgb, var(--a4) 26%, transparent) 55%, transparent 100%); }
+.m-amb-l.first { transition: none; }
+html.mobile body::before, html.mobile body::after { display: none !important; }
+html.mobile, html.mobile body { background: #0b0b10 !important; }
+html.mobile[data-v=playlist] #app::before, html.mobile[data-v=liked] #app::before, html.mobile[data-v=mix] #app::before, html.mobile[data-v=library] #app::before, html.mobile[data-v=queue] #app::before { background: linear-gradient(to bottom, color-mix(in srgb, var(--m-pc, #5a5ad0) 50%, transparent) 0, color-mix(in srgb, var(--m-pc, #5a5ad0) 20%, transparent) 45%, transparent 100%); }
+html.mobile .track.playing .t-title, html.mobile .plp-track.playing .t-title { transition: color .8s ease; }
+
+/* ===== v17 : paramètres ===== */
+html.mobile.m-setopen #m-amb, html.mobile.m-setopen #app::before { display: none !important; }
+html.mobile #settings-modal, html.mobile #settings-modal .set-win { background: #0b0b10 !important; border-radius: 0 !important; }
+html.mobile.m-setopen, html.mobile.m-setopen body { background: #0b0b10 !important; }
+/* aucun onglet de l'île n'est grisé sauf « Paramètres » */
+html.mobile.m-setopen body > #sidebar .nav:not(.bottom):not(#nav-settings), html.mobile.m-setopen body > #sidebar .nav:not(.bottom):not(#nav-settings):hover, html.mobile.m-setopen body > #sidebar .nav:not(.bottom):not(#nav-settings):focus, html.mobile.m-setopen body > #sidebar .nav:not(.bottom):not(#nav-settings):active { background: transparent !important; box-shadow: none !important; color: rgba(255,255,255,.72) !important; }
+/* pas de bouton « Accueil » / retour d'une autre page par-dessus les paramètres */
+html.mobile.m-setopen #main > .row:first-child, html.mobile.m-setopen #main [data-lv=back] { display: none !important; }
+/* île et mini-lecteur au-dessus des paramètres */
+html.mobile.m-setopen body > #sidebar { z-index: 2147483000 !important; }
+html.mobile.m-setopen body > #player { z-index: 2146999000 !important; position: fixed !important; left: 22px !important; right: 22px !important; bottom: calc(var(--sab) + 12px + var(--isl) + 8px) !important; }
+html.mobile #home-fab { display: none !important; }
+
+/* ===== v18 : avatar à gauche + pastilles ===== */
+html.mobile #topbar { justify-content: flex-start !important; }
+html.mobile #topbar #acct-dock { margin: 0 !important; }
+html.mobile #topbar .m-chips { display: flex; gap: 8px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 2px 0; }
+html.mobile #topbar .m-chips::-webkit-scrollbar { display: none; }
+html.mobile #topbar .m-chip { flex: none; height: 34px; padding: 0 14px; border-radius: 17px; border: 0; color: #fff; font: 600 14px/1 inherit; background: rgba(255,255,255,.12); -webkit-tap-highlight-color: transparent; }
+html.mobile #topbar .m-chip.on { background: #fff; color: #0b0b10; }
+html.mobile.srch #topbar .m-chips, html.mobile[data-v=playlist] #topbar .m-chips, html.mobile[data-v=collection] #topbar .m-chips { display: none; }
+html.mobile #home-root[data-f=new] .hm-sec:not([data-g=new]), html.mobile #home-root[data-f=trend] .hm-sec:not([data-g=trend]) { display: none !important; }
+html.mobile #home-root[data-f=new] .rs-h, html.mobile #home-root[data-f=new] .rs-grid, html.mobile #home-root[data-f=trend] .rs-h, html.mobile #home-root[data-f=trend] .rs-grid { display: none !important; }
+html.mobile[data-v=liked] #topbar .m-chips, html.mobile[data-v=lvpage] #topbar .m-chips, html.mobile[data-v=mix] #topbar .m-chips { display: flex; }
+/* Nouveautés (pastille sélectionnée) : grille de pochettes sur 2 colonnes au lieu du défilement horizontal */
+html.mobile #home-root[data-f=new] .hm-sec[data-g=new] .hm-scroll { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 14px !important; overflow: visible !important; padding-bottom: 16px; contain: none; }
+html.mobile #home-root[data-f=new] .hm-sec[data-g=new] .hm-scroll > * { flex: none !important; width: auto !important; }
+html.mobile #home-root[data-f=new] .hm-sec[data-g=new] .hm-cover { border-radius: 8px; }
+
+/* ===== v19 : titre en cours dans une page d'album / d'artiste ===== */
+html.mobile #lv-page .lv-row.playing .lv-n { position: relative; font-size: 0 !important; color: transparent; }
+html.mobile #lv-page .lv-row.playing .lv-n::after { content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 16px; margin: -8px 0 0 -9px; border-radius: 1px;
+  background-image: linear-gradient(#fff,#fff), linear-gradient(#fff,#fff), linear-gradient(#fff,#fff); background-position: 0 100%, 7px 100%, 14px 100%; background-repeat: no-repeat; background-size: 4px 60%, 4px 100%, 4px 40%; }
+html.mobile.m-pl #lv-page .lv-row.playing .lv-n::after { animation: mBars 1s ease-in-out infinite; }
+html.mobile #lv-page .lv-row.playing .lv-t { color: color-mix(in srgb, var(--amb1, #8b8cff) 45%, #fff) !important; font-weight: 600; }
+html.mobile #lv-page .lv-row.playing { background: rgba(255,255,255,.08) !important; border-radius: 10px; }
+/* quand la pochette de la ligne est visible (pages artiste), l'égaliseur du badge reste affiché */
+html.mobile #lv-page .lv-row.playing .eq-badge { display: flex; }
+
+/* ===== v20 : feuilles et menus en verre dépoli (même rendu que l'île et le mini-lecteur, même en mode léger) ===== */
+html.mobile #menu.m-sheet, html.mobile.lite #menu.m-sheet,
+html.mobile #acct-pop, html.mobile.lite #acct-pop {
+  background: linear-gradient(165deg, rgba(255,255,255,.24) 0%, rgba(255,255,255,.07) 38%, rgba(255,255,255,.04) 64%, rgba(255,255,255,.15) 100%), rgba(14,14,28,.36) !important;
+  border: 1px solid rgba(255,255,255,.26) !important;
+  backdrop-filter: blur(26px) saturate(1.7) !important; -webkit-backdrop-filter: blur(26px) saturate(1.7) !important;
+  box-shadow: 0 12px 34px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.4), inset 0 -1px 0 rgba(255,255,255,.08) !important;
+}
+html.mobile #menu.m-sheet button:active { background: rgba(255,255,255,.14) !important; }
+html.mobile #m-save .ms-bg, html.mobile.lite #m-save .ms-bg { background: rgba(6,6,14,.34) !important; }
+html.mobile #m-save .ms-card, html.mobile.lite #m-save .ms-card {
+  background: linear-gradient(165deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.06) 36%, rgba(255,255,255,.04) 66%, rgba(255,255,255,.14) 100%), rgba(14,14,28,.4) !important;
+  backdrop-filter: blur(30px) saturate(1.7) !important; -webkit-backdrop-filter: blur(30px) saturate(1.7) !important;
+  border: 1px solid rgba(255,255,255,.26) !important; border-bottom: 0 !important;
+  box-shadow: 0 -10px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.42) !important;
+}
+html.mobile #m-save .ms-find label, html.mobile.lite #m-save .ms-find label { background: rgba(255,255,255,.12) !important; border-color: rgba(255,255,255,.22) !important; }
+html.mobile #m-save .ms-row, html.mobile.lite #m-save .ms-row { background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important; }
+html.mobile #m-save .ms-row.on, html.mobile.lite #m-save .ms-row.on { background: rgba(255,255,255,.18) !important; border-color: rgba(255,255,255,.32) !important; }
+html.mobile #m-save .ms-ok, html.mobile.lite #m-save .ms-ok { background: rgba(255,255,255,.22) !important; border: 1px solid rgba(255,255,255,.34) !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.4) !important; }
+html.mobile #fs .m-fs-more, html.mobile.lite #fs .m-fs-more { background: rgba(255,255,255,.16) !important; backdrop-filter: blur(16px) saturate(1.5) !important; -webkit-backdrop-filter: blur(16px) saturate(1.5) !important; border: 1px solid rgba(255,255,255,.24); }
+
+/* ===== v21 : égaliseur sur la tuile « Recherches récentes » du titre en cours ===== */
+html.mobile .rs-t.m-playing { position: relative; }
+html.mobile .rs-t.m-playing::after { content: ""; position: absolute; right: 14px; top: 50%; width: 18px; height: 16px; margin-top: -8px; border-radius: 1px;
+  background-image: linear-gradient(#fff,#fff), linear-gradient(#fff,#fff), linear-gradient(#fff,#fff); background-position: 0 100%, 7px 100%, 14px 100%; background-repeat: no-repeat; background-size: 4px 60%, 4px 100%, 4px 40%; }
+html.mobile.m-pl .rs-t.m-playing::after { animation: mBars 1s ease-in-out infinite; }
+html.mobile .rs-t.m-playing .rs-n { color: color-mix(in srgb, var(--amb1, #8b8cff) 45%, #fff); }
+
+/* recherche : l'île et le titre en cours restent visibles (pause possible), au-dessus de la liste des résultats */
+html.mobile.srch #player { z-index: 70 !important; }
+html.mobile.srch #sidebar { z-index: 71 !important; }
+html.mobile.kb #player, html.mobile.kb #sidebar { display: none !important; }
+
+/* la page du dessous est cachée dès que le panneau de recherche est ouvert (pas d'éclair au retour d'un album) */
+html.mobile:has(#search-pop:not(.hidden)) #main { visibility: hidden; }
+html.mobile:has(#search-pop:not(.hidden)) #search-pop { animation: none; }
+
+/* ===== v22 : flèche retour en verre dépoli ===== */
+html.mobile #main > .row:first-child .btn, html.mobile #main [data-lv=back], html.mobile .m-back, html.mobile.lite #main [data-lv=back], html.mobile.lite .m-back {
+  background: linear-gradient(165deg, rgba(255,255,255,.3) 0%, rgba(255,255,255,.08) 45%, rgba(255,255,255,.18) 100%), rgba(14,14,28,.22) !important;
+  border: 1px solid rgba(255,255,255,.3) !important;
+  backdrop-filter: blur(16px) saturate(1.7) !important; -webkit-backdrop-filter: blur(16px) saturate(1.7) !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.42) !important;
+  color: #fff !important;
+}
+
+/* import de fichiers audio : pas de « dossier » sur téléphone, seulement « fichiers » */
+html.mobile [data-act=add-folder] { display: none !important; }
+
