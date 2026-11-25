@@ -32,11 +32,46 @@ function extractData(html) {
   return null;
 }
 
+// Nouveau format des résultats YouTube (« lockupViewModel ») : on le ramène à la forme de l'ancien videoRenderer
+function findDuration(node, depth = 0) {
+  if (!node || typeof node !== 'object' || depth > 12) return '';
+  if (Array.isArray(node)) { for (const x of node) { const d = findDuration(x, depth + 1); if (d) return d; } return ''; }
+  for (const k in node) {
+    const v = node[k];
+    if ((k === 'text' || k === 'content' || k === 'simpleText') && typeof v === 'string' && /^\d+(:\d{1,2}){1,2}$/.test(v.trim())) return v.trim();
+    const d = findDuration(v, depth + 1); if (d) return d;
+  }
+  return '';
+}
+function fromLockup(l) {
+  if (!l || !l.contentId || (l.contentType && l.contentType !== 'LOCKUP_CONTENT_TYPE_VIDEO')) return null;
+  const md = (l.metadata && l.metadata.lockupMetadataViewModel) || {};
+  const title = (md.title && (md.title.content || txt(md.title))) || '';
+  let channel = '';
+  try {
+    const rows = md.metadata.contentMetadataViewModel.metadataRows || [];
+    for (const r of rows) { for (const p of r.metadataParts || []) { const t = p.text && (p.text.content || txt(p.text)); if (t && !/vues|views|il y a|ago|^\d/.test(t)) { channel = t; break; } } if (channel) break; }
+  } catch { /* pas de chaîne */ }
+  return { videoId: l.contentId, title: { simpleText: title }, lengthText: { simpleText: findDuration(l.contentImage || l) }, ownerText: { simpleText: channel } };
+}
+
 function collect(node, out, depth = 0) {
   if (!node || typeof node !== 'object' || depth > 40) return;
   if (Array.isArray(node)) { for (const x of node) collect(x, out, depth + 1); return; }
   if (node.videoRenderer && node.videoRenderer.videoId) out.push(node.videoRenderer);
-  for (const k in node) if (k !== 'videoRenderer') collect(node[k], out, depth + 1);
+  if (node.lockupViewModel) { const v = fromLockup(node.lockupViewModel); if (v) out.push(v); }
+  for (const k in node) if (k !== 'videoRenderer' && k !== 'lockupViewModel') collect(node[k], out, depth + 1);
+}
+
+// journal (terminal) quand YouTube répond sans aucune vidéo reconnue : quels blocs contient la réponse ?
+function describe(j) {
+  const seen = new Map();
+  (function walk(n, d) {
+    if (!n || typeof n !== 'object' || d > 30) return;
+    if (Array.isArray(n)) { n.forEach((x) => walk(x, d + 1)); return; }
+    for (const k in n) { if (/Renderer$|ViewModel$/.test(k)) seen.set(k, (seen.get(k) || 0) + 1); walk(n[k], d + 1); }
+  })(j, 0);
+  return [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, n]) => k + '×' + n).join(', ') || 'aucun bloc';
 }
 
 const txt = (o) => (o && (o.simpleText || (o.runs && o.runs.map((r) => r.text).join('')))) || '';
@@ -91,16 +126,19 @@ function toList(raw) {
 // Méthode 1 : l'API interne utilisée par le site web YouTube (JSON propre, pas de page de consentement).
 // La clé ci-dessous est la clé publique intégrée au site YouTube lui-même, pas une clé personnelle.
 const WEB_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+// version du site annoncée à YouTube : celle de youtubei.js si elle est installée (tenue à jour), sinon une version récente
+let webVersion = '2.20260623.01.00';
+import('youtubei.js').then((m) => { const v = m.Constants && m.Constants.CLIENTS && m.Constants.CLIENTS.WEB && m.Constants.CLIENTS.WEB.VERSION; if (v && v > webVersion) webVersion = v; }).catch(() => { /* pas installée */ });
 async function viaInnerTube(q, fetchFn) {
   const res = await fetchFn('https://www.youtube.com/youtubei/v1/search?prettyPrint=false&key=' + WEB_KEY, {
     method: 'POST',
     signal: AbortSignal.timeout(7000),
     headers: {
       'Content-Type': 'application/json', 'User-Agent': UA, 'Origin': 'https://www.youtube.com',
-      'X-YouTube-Client-Name': '1', 'X-YouTube-Client-Version': '2.20250101.00.00'
+      'X-YouTube-Client-Name': '1', 'X-YouTube-Client-Version': webVersion
     },
     body: JSON.stringify({
-      context: { client: { clientName: 'WEB', clientVersion: '2.20250101.00.00', hl: 'en', gl: 'US' } },
+      context: { client: { clientName: 'WEB', clientVersion: webVersion, hl: 'en', gl: 'US' } },
       query: q, params: 'EgIQAQ=='
     })
   });
@@ -108,7 +146,9 @@ async function viaInnerTube(q, fetchFn) {
   if (!res.ok) throw new Error('PUBLIC_INNERTUBE_' + res.status);
   let j; try { j = await res.json(); } catch { throw new Error('PUBLIC_INNERTUBE_JSON'); }
   const raw = []; collect(j, raw);
-  return toList(raw);
+  const list = toList(raw);
+  if (!list.length) console.log('[ytpublic] API : aucune vidéo reconnue (' + raw.length + ' brutes) — blocs :', describe(j));
+  return list;
 }
 
 // Méthode 2 : la page de résultats (HTML) avec cookie de consentement.
@@ -120,8 +160,10 @@ async function viaHtml(q, fetchFn) {
   });
   if (res.status === 429) throw new Error('PUBLIC_BLOCKED');
   if (!res.ok) throw new Error('PUBLIC_HTML_' + res.status);
-  const list = parseResults(await res.text());
+  const html = await res.text();
+  const list = parseResults(html);
   if (list === null) throw new Error('PUBLIC_FORMAT');
+  if (!list.length) console.log('[ytpublic] page : aucune vidéo reconnue — blocs :', describe(extractData(html)));
   return list;
 }
 
