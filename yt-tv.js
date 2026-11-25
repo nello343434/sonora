@@ -20,7 +20,7 @@ function capture(source, pattern, label) {
 }
 
 async function fetchText(url) {
-  const res = await ses().fetch(url, { headers: { 'User-Agent': TV_USER_AGENT, 'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8' }, signal: AbortSignal.timeout(15000) });
+  const res = await ses().fetch(url, { headers: { 'User-Agent': TV_USER_AGENT, 'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8' }, credentials: 'include', signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(url.replace(ORIGIN, '') + ' a répondu ' + res.status);
   return res.text();
 }
@@ -38,6 +38,7 @@ async function generateTvIntegrityToken(requestKey, botguardResponse) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json+protobuf', 'x-goog-api-key': TV_API_KEY, 'User-Agent': TV_USER_AGENT },
     body: JSON.stringify([requestKey, botguardResponse]),
+    credentials: 'include',
     signal: AbortSignal.timeout(15000)
   });
   if (!res.ok) throw new Error('GenerateIT (TV) a répondu ' + res.status);
@@ -47,10 +48,9 @@ async function generateTvIntegrityToken(requestKey, botguardResponse) {
 }
 
 async function createSession() {
-  const [page, config] = await Promise.all([
-    fetchText(ORIGIN + '/tv'),
-    fetchText(ORIGIN + '/tv_config?action_get_config=true&client=lb4&theme=cl')
-  ]);
+  // l'une après l'autre : la page /tv pose le cookie visiteur, la config le réutilise (une seule identité)
+  const page = await fetchText(ORIGIN + '/tv');
+  const config = await fetchText(ORIGIN + '/tv_config?action_get_config=true&client=lb4&theme=cl');
   const livingRoomPoTokenId = capture(page, /"LIVING_ROOM_PO_TOKEN_ID":"(.*?)"/, 'identifiant salon');
   const { requestKey, challenge } = readTvChallenge(config);
   const entry = await botguard.createMinter(challenge, (r) => generateTvIntegrityToken(requestKey, r),

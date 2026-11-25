@@ -38,7 +38,7 @@ async function tvFetch(input, init = {}) {
   if (body === undefined && req && req.body && method !== 'GET' && method !== 'HEAD') body = await req.text();
   return session.fromPartition(PARTITION).fetch(url, {
     method, body, headers: Object.fromEntries(headers.entries()),
-    redirect: init.redirect || (req && req.redirect) || 'follow', signal: init.signal || (req && req.signal) || undefined
+    credentials: 'include', redirect: init.redirect || (req && req.redirect) || 'follow', signal: init.signal || (req && req.signal) || undefined
   });
 }
 
@@ -65,26 +65,54 @@ async function client() {
   return ytCreating;
 }
 
+// requête /player telle que l'envoie l'appli YouTube TV
+async function playerRequest(s, videoId, sts, poToken) {
+  const body = {
+    context: { client: { clientName: 'TVHTML5', clientVersion: s.clientVersion, userAgent: ytTv.TV_USER_AGENT, visitorData: s.visitorData, hl: 'fr', gl: 'FR' } },
+    videoId, contentCheckOk: true, racyCheckOk: true,
+    playbackContext: { contentPlaybackContext: { html5Preference: 'HTML5_PREF_WANTS', ...(sts ? { signatureTimestamp: sts } : {}) } }
+  };
+  if (poToken) body.serviceIntegrityDimensions = { poToken };
+  const res = await session.fromPartition(PARTITION).fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+    method: 'POST', credentials: 'include', signal: AbortSignal.timeout(15000),
+    headers: {
+      'Content-Type': 'application/json', 'User-Agent': ytTv.TV_USER_AGENT, 'Origin': 'https://www.youtube.com', 'Referer': 'https://www.youtube.com/tv',
+      'X-Youtube-Client-Name': '7', 'X-Youtube-Client-Version': s.clientVersion, 'X-Goog-Visitor-Id': s.visitorData
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
 // adresse audio directe d'une vidéo : { url, mime, bitrate }
 async function getAudioUrl(videoId) {
   if (!/^[\w-]{11}$/.test(String(videoId))) throw new Error('Identifiant de vidéo invalide');
   const c = urls.get(videoId);
   if (c && Date.now() < c.expiresAt) return c;
   const inst = await client();
-  // 1) jeton lié à la vidéo (ce que fait l'appli TV)  2) jeton de session
-  let info = null, why = '';
-  for (const tok of [await ytTv.mintFor(videoId).catch(() => ''), '']) {
-    const opts = { client: 'TV' };
-    if (tok) opts.po_token = tok;
-    info = await inst.getBasicInfo(videoId, opts);
-    if (info.streaming_data) break;
-    const ps = info.playability_status || {};
-    why = [ps.status, ps.reason, ps.error_screen && ps.error_screen.reason && String(ps.error_screen.reason)].filter(Boolean).join(' : ');
+  const s = await ytTv.getTvSession();
+  const player = inst.session.player;
+  const sts = player && player.signature_timestamp;
+  // trois essais : jeton lié à la vidéo (comme l'appli TV), jeton de session, sans jeton
+  const vtok = await ytTv.mintFor(videoId).catch(() => '');
+  const report = [];
+  let data = null;
+  for (const [label, tok] of [['jeton vidéo', vtok], ['jeton session', s.poToken], ['sans jeton', '']]) {
+    if (label !== 'sans jeton' && !tok) { report.push(label + ' : indisponible'); continue; }
+    let j;
+    try { j = await playerRequest(s, videoId, sts, tok); } catch (e) { report.push(label + ' : ' + e.message); continue; }
+    const ps = j.playabilityStatus || {};
+    if (ps.status === 'OK' && j.streamingData) { data = j; break; }
+    report.push(label + ' : ' + [ps.status || '?', ps.reason].filter(Boolean).join(' '));
   }
-  if (!info || !info.streaming_data) throw new Error('YouTube refuse le flux' + (why ? ' (' + why + ')' : ''));
-  const f = info.chooseFormat({ type: 'audio', quality: 'best', format: 'any' });
-  f.url = await f.decipher(inst.session.player);
-  if (!f || !f.url) throw new Error('Aucun flux audio');
+  if (!data) throw new Error('YouTube refuse le flux — ' + report.join(' | ') + ' — version ' + s.clientVersion + ', sts ' + (sts || '?'));
+  const audios = (data.streamingData.adaptiveFormats || []).filter((x) => /^audio\//.test(x.mimeType || '') && !x.drmFamilies);
+  if (!audios.length) throw new Error('Aucun flux audio dans la réponse');
+  audios.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+  const fmt = audios[0];
+  const f = { url: await player.decipher(fmt.url, fmt.signatureCipher, fmt.cipher), mime_type: fmt.mimeType, bitrate: fmt.bitrate };
+  if (!f.url) throw new Error('Aucun flux audio');
   const exp = Number(new URL(f.url).searchParams.get('expire')) * 1000;
   const out = { url: f.url, mime: f.mime_type || '', bitrate: f.bitrate || 0, expiresAt: (exp > Date.now() ? exp : Date.now() + 3 * 3600e3) - 10 * 60e3 };
   urls.set(videoId, out);
