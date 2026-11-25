@@ -96,6 +96,16 @@ async function playerRequest(cl, s, videoId, poToken) {
   return res.json();
 }
 
+// télécharge les 2 premiers octets du flux avec le User-Agent du client qui l'a obtenu : renvoie le code HTTP (0 = réseau)
+async function probe(url) {
+  try {
+    const ua = streamUserAgent(url);
+    const res = await session.fromPartition('sonora-yt-probe').fetch(url, { headers: Object.assign({ Range: 'bytes=0-1' }, ua ? { 'User-Agent': ua } : {}), credentials: 'omit', signal: AbortSignal.timeout(10000) });
+    try { await res.arrayBuffer(); } catch { /* ignoré */ }
+    return res.status;
+  } catch { return 0; }
+}
+
 // adresse audio directe d'une vidéo : { url, mime, bitrate }
 async function getAudioUrl(videoId) {
   if (!/^[\w-]{11}$/.test(String(videoId))) throw new Error('Identifiant de vidéo invalide');
@@ -108,24 +118,27 @@ async function getAudioUrl(videoId) {
   let list = clients(s, sts);
   if (preferred) list = [...list.filter((x) => x.id === preferred), ...list.filter((x) => x.id !== preferred)];
   const report = [];
-  let data = null, used = null;
+  let f = null, used = null;
   for (const cl of list) {
     let tok = '';
     if (cl.token === 'video') tok = await ytTv.mintFor(videoId).catch(() => '');
     let j;
     try { j = await playerRequest(cl, s, videoId, tok); } catch (e) { report.push(cl.label + ' : ' + e.message); continue; }
     const ps = j.playabilityStatus || {};
-    if (ps.status === 'OK' && j.streamingData) { data = j; used = cl; break; }
-    report.push(cl.label + ' : ' + [ps.status || '?', ps.reason].filter(Boolean).join(' '));
+    if (ps.status !== 'OK' || !j.streamingData) { report.push(cl.label + ' : ' + [ps.status || '?', ps.reason].filter(Boolean).join(' ')); continue; }
+    const audios = (j.streamingData.adaptiveFormats || []).filter((x) => /^audio\//.test(x.mimeType || '') && !x.drmFamilies);
+    if (!audios.length) { report.push(cl.label + ' : aucun flux audio'); continue; }
+    audios.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+    const fmt = audios[0];
+    let url = '';
+    try { url = await player.decipher(fmt.url, fmt.signatureCipher, fmt.cipher); } catch (e) { report.push(cl.label + ' : décodage impossible (' + e.message + ')'); continue; }
+    // le serveur vidéo accepte-t-il vraiment cette adresse ? (quelques octets suffisent)
+    const st = await probe(url);
+    if (st !== 200 && st !== 206) { report.push(cl.label + ' : adresse obtenue mais flux refusé (' + (st || 'réseau') + ')'); continue; }
+    f = { url, mime_type: fmt.mimeType, bitrate: fmt.bitrate }; used = cl; break;
   }
-  if (!data) throw new Error('YouTube refuse le flux — ' + report.join(' | ') + ' — version TV ' + s.clientVersion + ', sts ' + (sts || '?'));
+  if (!f) throw new Error('YouTube refuse le flux — ' + report.join(' | ') + ' — version TV ' + s.clientVersion + ', sts ' + (sts || '?'));
   preferred = used.id;
-  const audios = (data.streamingData.adaptiveFormats || []).filter((x) => /^audio\//.test(x.mimeType || '') && !x.drmFamilies);
-  if (!audios.length) throw new Error('Aucun flux audio dans la réponse');
-  audios.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-  const fmt = audios[0];
-  const f = { url: await player.decipher(fmt.url, fmt.signatureCipher, fmt.cipher), mime_type: fmt.mimeType, bitrate: fmt.bitrate };
-  if (!f.url) throw new Error('Aucun flux audio');
   const exp = Number(new URL(f.url).searchParams.get('expire')) * 1000;
   const out = { url: f.url, mime: f.mime_type || '', bitrate: f.bitrate || 0, via: used.label, expiresAt: (exp > Date.now() ? exp : Date.now() + 3 * 3600e3) - 10 * 60e3 };
   urls.set(videoId, out);
