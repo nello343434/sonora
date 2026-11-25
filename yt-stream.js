@@ -96,21 +96,11 @@ async function playerRequest(cl, s, videoId, poToken) {
   return res.json();
 }
 
-// télécharge les 2 premiers octets du flux avec le User-Agent du client qui l'a obtenu : renvoie le code HTTP (0 = réseau)
-async function probe(url) {
-  try {
-    const ua = streamUserAgent(url);
-    const res = await session.fromPartition('sonora-yt-probe').fetch(url, { headers: Object.assign({ Range: 'bytes=0-1' }, ua ? { 'User-Agent': ua } : {}), credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(10000) });
-    try { await res.arrayBuffer(); } catch { /* ignoré */ }
-    return res.status;
-  } catch { return 0; }
-}
-
 // adresse audio directe d'une vidéo : { url, mime, bitrate }
-async function getAudioUrl(videoId) {
+async function getAudioUrl(videoId, opts = {}) {
   if (!/^[\w-]{11}$/.test(String(videoId))) throw new Error('Identifiant de vidéo invalide');
   const c = urls.get(videoId);
-  if (c && Date.now() < c.expiresAt) return c;
+  if (!opts.fresh && c && Date.now() < c.expiresAt) return c;
   const inst = await client();
   const s = await ytTv.getTvSession();
   const player = inst.session.player;
@@ -134,14 +124,12 @@ async function getAudioUrl(videoId) {
     try { url = await player.decipher(fmt.url, fmt.signatureCipher, fmt.cipher); } catch (e) { report.push(cl.label + ' : décodage impossible (' + e.message + ')'); continue; }
     // le serveur vidéo accepte-t-il vraiment cette adresse ? (quelques octets suffisent)
     try { const n0 = new URL(fmt.url || new URLSearchParams(fmt.signatureCipher || fmt.cipher || '').get('url')).searchParams.get('n'), n1 = new URL(url).searchParams.get('n'); console.log('[sonora-yt]', videoId, cl.label, 'n :', n0 ? (n0 === n1 ? 'NON transformé' : 'transformé') : 'absent', '| client c =', new URL(url).searchParams.get('c')); } catch { /* journal seulement */ }
-    const st = await probe(url);
-    if (st !== 200 && st !== 206) { report.push(cl.label + ' : adresse obtenue mais flux refusé (' + (st || 'réseau') + ')'); continue; }
     f = { url, mime_type: fmt.mimeType, bitrate: fmt.bitrate, size: +fmt.contentLength || 0 }; used = cl; break;
   }
   if (!f) throw new Error('YouTube refuse le flux — ' + report.join(' | ') + ' — version TV ' + s.clientVersion + ', sts ' + (sts || '?'));
   preferred = used.id;
   const exp = Number(new URL(f.url).searchParams.get('expire')) * 1000;
-  const out = { url: f.url, mime: f.mime_type || '', bitrate: f.bitrate || 0, size: f.size, via: used.label, expiresAt: (exp > Date.now() ? exp : Date.now() + 3 * 3600e3) - 10 * 60e3 };
+  const out = { url: f.url, mime: f.mime_type || '', bitrate: f.bitrate || 0, size: f.size, via: used.label, visitorData: s.visitorData, expiresAt: (exp > Date.now() ? exp : Date.now() + 3 * 3600e3) - 10 * 60e3 };
   urls.set(videoId, out);
   if (urls.size > 200) urls.delete(urls.keys().next().value);
   return out;
@@ -180,30 +168,71 @@ function fetchStream(url, range) {
   return session.fromPartition('sonora-yt-dl').fetch(url, { headers, credentials: 'omit', cache: 'no-store' });
 }
 
-async function download(id, f, retry) {
+// Le serveur vidéo refuse certains téléchargements (403) selon la façon de demander. On essaie plusieurs méthodes,
+// dans l'ordre, en gardant ce qui est déjà arrivé ; la première qui va jusqu'au bout est retenue pour les titres suivants.
+const MB = 1024 * 1024;
+const STRATS = [
+  { id: 'A', label: 'fichier entier', chunk: 0, how: 'header' },
+  { id: 'B', label: 'morceaux de 1 Mo (en-tête Range)', chunk: MB, how: 'header' },
+  { id: 'C', label: 'morceaux de 1 Mo (paramètre range=)', chunk: MB, how: 'query' },
+  { id: 'D', label: 'un morceau par adresse neuve', chunk: MB, how: 'query', fresh: true },
+  { id: 'E', label: 'paramètre range= avec jeton pot', chunk: MB, how: 'query', pot: true }
+];
+let bestStrategy = '';
+let resolveUrl = (id, opts) => getAudioUrl(id, opts);
+
+async function readInto(res, f, start) {
+  const reader = res.body.getReader();
+  let pos = start;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const n = Math.min(value.length, f.total - pos);
+    if (n <= 0) { try { await reader.cancel(); } catch { /* ignoré */ } break; }
+    Buffer.from(value.buffer, value.byteOffset, n).copy(f.buf, pos);
+    pos += n;
+    if (pos > f.have) { f.have = pos; f.wake(); }
+  }
+  return pos - start;
+}
+
+async function runStrategy(id, f, st) {
+  let info = await resolveUrl(id, { fresh: true });   // adresse neuve pour chaque méthode
+  const pot = st.pot ? await ytTv.mintFor(info.visitorData) : '';
+  while (f.have < f.total) {
+    const a = f.have, b = st.chunk ? Math.min(f.total - 1, a + st.chunk - 1) : f.total - 1;
+    if (st.fresh && a > 0) info = await resolveUrl(id, { fresh: true });
+    let url = info.url;
+    if (st.how === 'query') url += '&range=' + a + '-' + b;
+    if (pot) url += '&pot=' + encodeURIComponent(pot);
+    const res = await fetchStream(url, st.how === 'header' ? 'bytes=' + a + '-' + b : '');
+    console.log('[sonora-yt]', id, st.id, a + '-' + b, '->', res.status);
+    if (res.status !== 200 && res.status !== 206) { try { await res.arrayBuffer(); } catch { /* ignoré */ } throw new Error('HTTP ' + res.status + ' à l’octet ' + a); }
+    const got = await readInto(res, f, a);
+    if (got <= 0) throw new Error('réponse vide à l’octet ' + a);
+  }
+}
+
+async function download(id, f) {
   try {
-    const info = await getAudioUrl(id);
-    const res = await fetchStream(info.url, info.size ? 'bytes=0-' + (info.size - 1) : 'bytes=0-');
-    console.log('[sonora-yt]', id, 'téléchargement ->', res.status, res.headers.get('content-range') || res.headers.get('content-length') || '');
-    if (res.status === 403 && !retry) { urls.delete(id); return download(id, f, true); }   // adresse périmée : une nouvelle, une fois
-    if (res.status !== 200 && res.status !== 206) throw new Error('HTTP ' + res.status);
-    const cr = /\/(\d+)$/.exec(res.headers.get('content-range') || '');
-    f.total = info.size || (cr ? +cr[1] : +res.headers.get('content-length') || 0);
-    if (!f.total) throw new Error('taille inconnue');
-    f.mime = (info.mime || res.headers.get('content-type') || 'audio/webm').split(';')[0];
+    const info = await resolveUrl(id, {});
+    if (!info.size) throw new Error('taille du fichier inconnue');
+    f.total = info.size;
+    f.mime = (info.mime || 'audio/webm').split(';')[0];
     f.buf = Buffer.alloc(f.total);
     f.wake();
-    const reader = res.body.getReader();
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const n = Math.min(value.length, f.total - f.have);
-      Buffer.from(value.buffer, value.byteOffset, n).copy(f.buf, f.have);
-      f.have += n;
-      f.wake();
+    const order = bestStrategy ? [...STRATS.filter((x) => x.id === bestStrategy), ...STRATS.filter((x) => x.id !== bestStrategy)] : STRATS;
+    for (const st of order) {
+      try {
+        await runStrategy(id, f, st);
+        bestStrategy = st.id;
+        console.log('[sonora-yt]', id, 'OK avec la méthode', st.id, '(' + st.label + ') :', f.have, '/', f.total, 'octets');
+        break;
+      } catch (e) {
+        console.log('[sonora-yt]', id, 'méthode', st.id, '(' + st.label + ') échoue :', e.message, '— reçu', f.have, '/', f.total);
+      }
     }
-    console.log('[sonora-yt]', id, 'téléchargé :', f.have, '/', f.total, 'octets');
-    if (f.have < f.total) throw new Error('fichier incomplet (' + f.have + ' / ' + f.total + ')');
+    if (f.have < f.total) throw new Error('aucune méthode n’a permis de tout télécharger');
     f.done = true;
   } catch (e) {
     f.error = e; console.log('[sonora-yt]', id, 'erreur de téléchargement :', e.message);
@@ -220,7 +249,7 @@ function openFile(id) {
   f.until = (cond) => new Promise((resolve) => { const check = () => (cond() || f.error || f.done) ? resolve() : f.waiters.push(check); check(); });
   files.set(id, f);
   while (files.size > KEEP) files.delete(files.keys().next().value);
-  download(id, f, false);
+  download(id, f);
   return f;
 }
 
@@ -244,4 +273,4 @@ async function handleStream(req) {
   } });
 }
 
-module.exports = { getAudioUrl, reset, dispose, streamUserAgent, handleStream, _cache: urls };
+module.exports = { getAudioUrl, reset, dispose, streamUserAgent, handleStream, _setResolver: (fn) => { resolveUrl = fn; } };
