@@ -289,8 +289,8 @@ export default {
     if (!env.YT_KEY) return json({ error: 'missing_key' }, 500);
 
     const cache = caches.default;
-    const cacheKey = new Request('https://cache.sonora.invalid/yt?q=' + encodeURIComponent(q.toLowerCase()));
-    const kvKey = 'yt:' + q.toLowerCase().replace(/\s+/g, ' ');
+    const cacheKey = new Request('https://cache.sonora.invalid/yt2?q=' + encodeURIComponent(q.toLowerCase()));
+    const kvKey = 'yt2:' + q.toLowerCase().replace(/\s+/g, ' ');   // « yt2 » : résultats filtrés (lisibles dans l'appli)
     if (env.CACHE) {                                              // mémoire partagée entre tous les serveurs
       const kv = await env.CACHE.get(kvKey);
       if (kv) return new Response(kv, { status: 200, headers: { ...HEADERS, 'X-Cache': 'KV' } });
@@ -306,7 +306,8 @@ export default {
     if (used >= MAX_PER_HOUR) return json({ error: 'rate_limited' }, 429, { 'Retry-After': '3600' });
     ctx.waitUntil(cache.put(rlKey, new Response(String(used + 1), { headers: { 'Cache-Control': 'max-age=3700' } })));
 
-    const s = await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=20&q=' + encodeURIComponent(q) + '&key=' + encodeURIComponent(env.YT_KEY));
+    // videoEmbeddable=true : seulement les vidéos que leur propriétaire autorise à lire dans une autre appli (sinon « ne peut pas être lue ici »)
+    const s = await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&videoEmbeddable=true&maxResults=20&q=' + encodeURIComponent(q) + '&key=' + encodeURIComponent(env.YT_KEY));
     if (!s.ok) return json({ error: s.status === 403 ? 'quota' : 'youtube_' + s.status }, s.status === 403 ? 503 : 502);
     const sj = await s.json();
     const items = (sj.items || []).filter((i) => i.id && i.id.videoId);

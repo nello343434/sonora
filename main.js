@@ -443,7 +443,7 @@ ipcMain.handle('yt-search', async (_e, q) => {
     if (publicSearchEnabled()) return ytPublic.search(q, (u, o) => net.fetch(u, o));
     throw new Error('NO_YT_KEY');
   }
-  const url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=20&q='
+  const url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&videoEmbeddable=true&maxResults=20&q='
     + encodeURIComponent(q) + '&key=' + encodeURIComponent(key);
   const res = await fetch(url);
   if (!res.ok) {
