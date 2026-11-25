@@ -393,7 +393,14 @@ ipcMain.handle('yt-tv-session', async (_e, opts) => {
 // YouTube a refusé la session (403, « confirm you're not a bot ») : la prochaine demande en fabrique une neuve
 ipcMain.handle('yt-tv-reset', () => { ytTv.invalidateTvSession(); return true; });
 // adresse audio directe d'une vidéo YouTube (voir yt-stream.js) : { ok, url, mime } ou { ok: false, error }
+// Désactivé par défaut : le serveur vidéo de YouTube ne sert que le premier Mo sans attestation de l'appareil (403 ensuite).
+// Pour réessayer : "directAudio": true dans sonora.config.json, ou la variable d'environnement SONORA_DIRECT_AUDIO=1.
+function directAudioEnabled() {
+  if (process.env.SONORA_DIRECT_AUDIO === '1') return true;
+  return readUserCfg().directAudio === true;
+}
 ipcMain.handle('yt-audio', async (_e, videoId) => {
+  if (!directAudioEnabled()) return { ok: false, error: 'audio direct désactivé' };
   try { const r = await ytStream.getAudioUrl(videoId); return { ok: true, url: 'sonora-yt://audio/' + videoId, direct: r.url, mime: r.mime, via: r.via }; }
   catch (e) { return { ok: false, error: String((e && e.message) || e).slice(0, 600) }; }
 });
