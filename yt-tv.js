@@ -63,7 +63,7 @@ async function createSession() {
     playerId: capture(page, /\/s\/player\/([\w-]+)\//, 'identifiant du lecteur'),
     userAgent: TV_USER_AGENT
   };
-  return { session: s, expiresAt: entry.expiresAt };
+  return { session: s, minter: entry.minter, expiresAt: entry.expiresAt };
 }
 
 // renvoie la session en cache tant qu'elle est valide ; les appels simultanés partagent la même création
@@ -75,9 +75,15 @@ async function getTvSession() {
   return (await pending).session;
 }
 
+// PO Token lié à un contenu précis (ex. l'identifiant d'une vidéo), fabriqué avec le minter de la session en cours
+async function mintFor(identifier) {
+  await getTvSession();
+  return cached.minter.mintAsWebsafeString(String(identifier));
+}
+
 // à appeler si YouTube refuse la session (403, « confirm you're not a bot »…) : la prochaine demande en recrée une
 function invalidateTvSession() { cached = null; }
 
 function dispose() { cached = null; botguard.dispose(); }
 
-module.exports = { getTvSession, invalidateTvSession, dispose, TV_USER_AGENT };
+module.exports = { getTvSession, mintFor, invalidateTvSession, dispose, TV_USER_AGENT };

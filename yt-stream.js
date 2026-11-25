@@ -65,7 +65,19 @@ async function getAudioUrl(videoId) {
   const c = urls.get(videoId);
   if (c && Date.now() < c.expiresAt) return c;
   const inst = await client();
-  const f = await inst.getStreamingData(videoId, { type: 'audio', quality: 'best', format: 'any', client: 'TV' });
+  // 1) jeton lié à la vidéo (ce que fait l'appli TV)  2) jeton de session
+  let info = null, why = '';
+  for (const tok of [await ytTv.mintFor(videoId).catch(() => ''), '']) {
+    const opts = { client: 'TV' };
+    if (tok) opts.po_token = tok;
+    info = await inst.getBasicInfo(videoId, opts);
+    if (info.streaming_data) break;
+    const ps = info.playability_status || {};
+    why = [ps.status, ps.reason, ps.error_screen && ps.error_screen.reason && String(ps.error_screen.reason)].filter(Boolean).join(' : ');
+  }
+  if (!info || !info.streaming_data) throw new Error('YouTube refuse le flux' + (why ? ' (' + why + ')' : ''));
+  const f = info.chooseFormat({ type: 'audio', quality: 'best', format: 'any' });
+  f.url = await f.decipher(inst.session.player);
   if (!f || !f.url) throw new Error('Aucun flux audio');
   const exp = Number(new URL(f.url).searchParams.get('expire')) * 1000;
   const out = { url: f.url, mime: f.mime_type || '', bitrate: f.bitrate || 0, expiresAt: (exp > Date.now() ? exp : Date.now() + 3 * 3600e3) - 10 * 60e3 };
