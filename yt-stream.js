@@ -48,6 +48,7 @@ async function client() {
   if (ytCreating) return ytCreating;
   ytCreating = (async () => {
     const { Innertube, Platform, Constants } = await import('youtubei.js');
+    C = Constants;
     Platform.shim.eval = (data) => sandboxEval(data.output);
     // la version du client TV intégrée à youtubei.js vieillit : YouTube répond alors « La page doit être actualisée ».
     // On annonce la version réelle lue sur youtube.com/tv, et le même User-Agent que celui de la session.
@@ -65,21 +66,31 @@ async function client() {
   return ytCreating;
 }
 
-// requête /player telle que l'envoie l'appli YouTube TV
-async function playerRequest(s, videoId, sts, poToken) {
+// ---- clients essayés, dans l'ordre (celui qui a marché passe en premier la fois suivante) ----
+// TV : le client de la session BotGuard. VR (Quest) et iOS : clients que YouTube sert sans attestation du navigateur.
+let C = null;   // constantes de youtubei.js (versions et User-Agents à jour avec la bibliothèque)
+function clients(s, sts) {
+  const vr = C.CLIENTS.ANDROID_VR, ios = C.CLIENTS.IOS;
+  const tv = { clientName: 'TVHTML5', clientVersion: s.clientVersion, userAgent: ytTv.TV_USER_AGENT, visitorData: s.visitorData, hl: 'fr', gl: 'FR' };
+  return [
+    { id: 'tv', label: 'TV', nameId: '7', ua: ytTv.TV_USER_AGENT, client: tv, token: 'video', sts, web: true },
+    { id: 'tv2', label: 'TV (forme appli)', nameId: '7', ua: ytTv.TV_USER_AGENT, client: { ...tv, clientScreen: 'WATCH', platform: 'TV', clientFormFactor: 'UNKNOWN_FORM_FACTOR', deviceMake: 'Unknown', deviceModel: 'Unknown', osName: 'Unknown', osVersion: 'Unknown' }, token: 'video', sts, web: false },
+    { id: 'vr', label: 'VR', nameId: '28', ua: vr.USER_AGENT, client: { clientName: vr.NAME, clientVersion: vr.VERSION, userAgent: vr.USER_AGENT, deviceMake: vr.DEVICE_MAKE, deviceModel: vr.DEVICE_MODEL, androidSdkVersion: vr.SDK_VERSION, osName: 'Android', osVersion: '12L', platform: 'MOBILE', clientFormFactor: 'SMALL_FORM_FACTOR', visitorData: s.visitorData, hl: 'fr', gl: 'FR' }, token: '', sts: 0, web: false },
+    { id: 'ios', label: 'iOS', nameId: '5', ua: ios.USER_AGENT, client: { clientName: ios.NAME, clientVersion: ios.VERSION, userAgent: ios.USER_AGENT, deviceMake: 'Apple', deviceModel: ios.DEVICE_MODEL, osName: ios.OS_NAME, osVersion: ios.OS_VERSION, platform: 'MOBILE', visitorData: s.visitorData, hl: 'fr', gl: 'FR' }, token: '', sts: 0, web: false }
+  ];
+}
+let preferred = '';
+
+async function playerRequest(cl, s, videoId, poToken) {
   const body = {
-    context: { client: { clientName: 'TVHTML5', clientVersion: s.clientVersion, userAgent: ytTv.TV_USER_AGENT, visitorData: s.visitorData, hl: 'fr', gl: 'FR' } },
-    videoId, contentCheckOk: true, racyCheckOk: true,
-    playbackContext: { contentPlaybackContext: { html5Preference: 'HTML5_PREF_WANTS', ...(sts ? { signatureTimestamp: sts } : {}) } }
+    context: { client: cl.client }, videoId, contentCheckOk: true, racyCheckOk: true,
+    playbackContext: { contentPlaybackContext: { html5Preference: 'HTML5_PREF_WANTS', ...(cl.sts ? { signatureTimestamp: cl.sts } : {}) } }
   };
   if (poToken) body.serviceIntegrityDimensions = { poToken };
+  const headers = { 'Content-Type': 'application/json', 'User-Agent': cl.ua, 'X-Youtube-Client-Name': cl.nameId, 'X-Youtube-Client-Version': cl.client.clientVersion, 'X-Goog-Visitor-Id': s.visitorData };
+  if (cl.web) { headers.Origin = 'https://www.youtube.com'; headers.Referer = 'https://www.youtube.com/tv'; }
   const res = await session.fromPartition(PARTITION).fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
-    method: 'POST', credentials: 'include', signal: AbortSignal.timeout(15000),
-    headers: {
-      'Content-Type': 'application/json', 'User-Agent': ytTv.TV_USER_AGENT, 'Origin': 'https://www.youtube.com', 'Referer': 'https://www.youtube.com/tv',
-      'X-Youtube-Client-Name': '7', 'X-Youtube-Client-Version': s.clientVersion, 'X-Goog-Visitor-Id': s.visitorData
-    },
-    body: JSON.stringify(body)
+    method: 'POST', credentials: cl.web ? 'include' : 'omit', signal: AbortSignal.timeout(15000), headers, body: JSON.stringify(body)
   });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
@@ -94,19 +105,21 @@ async function getAudioUrl(videoId) {
   const s = await ytTv.getTvSession();
   const player = inst.session.player;
   const sts = player && player.signature_timestamp;
-  // trois essais : jeton lié à la vidéo (comme l'appli TV), jeton de session, sans jeton
-  const vtok = await ytTv.mintFor(videoId).catch(() => '');
+  let list = clients(s, sts);
+  if (preferred) list = [...list.filter((x) => x.id === preferred), ...list.filter((x) => x.id !== preferred)];
   const report = [];
-  let data = null;
-  for (const [label, tok] of [['jeton vidéo', vtok], ['jeton session', s.poToken], ['sans jeton', '']]) {
-    if (label !== 'sans jeton' && !tok) { report.push(label + ' : indisponible'); continue; }
+  let data = null, used = null;
+  for (const cl of list) {
+    let tok = '';
+    if (cl.token === 'video') tok = await ytTv.mintFor(videoId).catch(() => '');
     let j;
-    try { j = await playerRequest(s, videoId, sts, tok); } catch (e) { report.push(label + ' : ' + e.message); continue; }
+    try { j = await playerRequest(cl, s, videoId, tok); } catch (e) { report.push(cl.label + ' : ' + e.message); continue; }
     const ps = j.playabilityStatus || {};
-    if (ps.status === 'OK' && j.streamingData) { data = j; break; }
-    report.push(label + ' : ' + [ps.status || '?', ps.reason].filter(Boolean).join(' '));
+    if (ps.status === 'OK' && j.streamingData) { data = j; used = cl; break; }
+    report.push(cl.label + ' : ' + [ps.status || '?', ps.reason].filter(Boolean).join(' '));
   }
-  if (!data) throw new Error('YouTube refuse le flux — ' + report.join(' | ') + ' — version ' + s.clientVersion + ', sts ' + (sts || '?'));
+  if (!data) throw new Error('YouTube refuse le flux — ' + report.join(' | ') + ' — version TV ' + s.clientVersion + ', sts ' + (sts || '?'));
+  preferred = used.id;
   const audios = (data.streamingData.adaptiveFormats || []).filter((x) => /^audio\//.test(x.mimeType || '') && !x.drmFamilies);
   if (!audios.length) throw new Error('Aucun flux audio dans la réponse');
   audios.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
@@ -114,7 +127,7 @@ async function getAudioUrl(videoId) {
   const f = { url: await player.decipher(fmt.url, fmt.signatureCipher, fmt.cipher), mime_type: fmt.mimeType, bitrate: fmt.bitrate };
   if (!f.url) throw new Error('Aucun flux audio');
   const exp = Number(new URL(f.url).searchParams.get('expire')) * 1000;
-  const out = { url: f.url, mime: f.mime_type || '', bitrate: f.bitrate || 0, expiresAt: (exp > Date.now() ? exp : Date.now() + 3 * 3600e3) - 10 * 60e3 };
+  const out = { url: f.url, mime: f.mime_type || '', bitrate: f.bitrate || 0, via: used.label, expiresAt: (exp > Date.now() ? exp : Date.now() + 3 * 3600e3) - 10 * 60e3 };
   urls.set(videoId, out);
   if (urls.size > 200) urls.delete(urls.keys().next().value);
   return out;
@@ -125,4 +138,15 @@ function reset() { urls.clear(); yt = null; ytToken = ''; ytTv.invalidateTvSessi
 
 function dispose() { const w = evalWin; evalWin = null; evalReady = null; if (w && !w.isDestroyed()) { try { w.destroy(); } catch { /* ignoré */ } } }
 
-module.exports = { getAudioUrl, reset, dispose };
+// googlevideo vérifie que le lecteur qui télécharge le flux ressemble au client qui l'a demandé
+function streamUserAgent(url) {
+  if (!C) return '';
+  let c = '';
+  try { c = new URL(url).searchParams.get('c') || ''; } catch { return ''; }
+  if (c === 'ANDROID_VR') return C.CLIENTS.ANDROID_VR.USER_AGENT;
+  if (c === 'IOS') return C.CLIENTS.IOS.USER_AGENT;
+  if (c.startsWith('TVHTML5')) return ytTv.TV_USER_AGENT;
+  return '';
+}
+
+module.exports = { getAudioUrl, reset, dispose, streamUserAgent };

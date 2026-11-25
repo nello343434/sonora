@@ -391,7 +391,7 @@ ipcMain.handle('yt-tv-session', async (_e, opts) => {
 ipcMain.handle('yt-tv-reset', () => { ytTv.invalidateTvSession(); return true; });
 // adresse audio directe d'une vidéo YouTube (voir yt-stream.js) : { ok, url, mime } ou { ok: false, error }
 ipcMain.handle('yt-audio', async (_e, videoId) => {
-  try { const r = await ytStream.getAudioUrl(videoId); return { ok: true, url: r.url, mime: r.mime }; }
+  try { const r = await ytStream.getAudioUrl(videoId); return { ok: true, url: r.url, mime: r.mime, via: r.via }; }
   catch (e) { return { ok: false, error: String((e && e.message) || e).slice(0, 600) }; }
 });
 // l'adresse a été refusée pendant la lecture : on oublie les adresses et la session
@@ -528,10 +528,12 @@ app.on('before-quit', () => { try { ytStream.dispose(); ytTv.dispose(); } catch 
 
 app.whenReady().then(() => {
   if (!gotLock) return;
+  // un seul écouteur par session : YouTube (Referer du lecteur intégré) et googlevideo (User-Agent du client qui a obtenu le flux)
   session.defaultSession.webRequest.onBeforeSendHeaders(
-    { urls: ['https://www.youtube.com/*'] },
+    { urls: ['https://www.youtube.com/*', 'https://*.googlevideo.com/*'] },
     (d, cb) => {
-      d.requestHeaders['Referer'] = 'https://sonora.app/';
+      if (/^https:\/\/www\.youtube\.com\//.test(d.url)) d.requestHeaders['Referer'] = 'https://sonora.app/';
+      else { const ua = ytStream.streamUserAgent(d.url); if (ua) d.requestHeaders['User-Agent'] = ua; }
       cb({ requestHeaders: d.requestHeaders });
     }
   );
