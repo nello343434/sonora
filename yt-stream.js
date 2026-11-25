@@ -47,8 +47,14 @@ async function client() {
   if (yt && ytToken === s.poToken) return yt;
   if (ytCreating) return ytCreating;
   ytCreating = (async () => {
-    const { Innertube, Platform } = await import('youtubei.js');
+    const { Innertube, Platform, Constants } = await import('youtubei.js');
     Platform.shim.eval = (data) => sandboxEval(data.output);
+    // la version du client TV intégrée à youtubei.js vieillit : YouTube répond alors « La page doit être actualisée ».
+    // On annonce la version réelle lue sur youtube.com/tv, et le même User-Agent que celui de la session.
+    if (Constants && Constants.CLIENTS && Constants.CLIENTS.TV) {
+      if (s.clientVersion) Constants.CLIENTS.TV.VERSION = s.clientVersion;
+      Constants.CLIENTS.TV.USER_AGENT = ytTv.TV_USER_AGENT;
+    }
     const inst = await Innertube.create({
       client_type: 'TVHTML5', po_token: s.poToken, visitor_data: s.visitorData, player_id: s.playerId,
       user_agent: ytTv.TV_USER_AGENT, fetch: tvFetch, retrieve_player: true, enable_session_cache: false, lang: 'fr', location: 'FR'
