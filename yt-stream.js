@@ -162,4 +162,30 @@ function streamUserAgent(url) {
   return '';
 }
 
-module.exports = { getAudioUrl, reset, dispose, streamUserAgent };
+// ---- relais du flux : le lecteur de la page lit « sonora-yt://audio/<videoId> » et c'est le processus principal
+// qui télécharge le son chez YouTube, avec les mêmes en-têtes que la vérification qui a réussi (pas de cookies,
+// pas d'en-têtes de navigateur que le serveur vidéo refuse). Les demandes de plage (Range) passent telles quelles.
+async function fetchStream(url, range) {
+  const ua = streamUserAgent(url);
+  const headers = {};
+  if (range) headers.Range = range;
+  if (ua) headers['User-Agent'] = ua;
+  return session.fromPartition('sonora-yt-probe').fetch(url, { headers, credentials: 'omit' });
+}
+async function handleStream(req) {
+  let id = '';
+  try { id = new URL(req.url).pathname.replace(/^\/+/, '').slice(0, 11); } catch { /* ignoré */ }
+  if (!/^[\w-]{11}$/.test(id)) return new Response('', { status: 400 });
+  const range = req.headers.get('range') || '';
+  let res;
+  try {
+    res = await fetchStream((await getAudioUrl(id)).url, range);
+    if (res.status === 403 || res.status === 410) { urls.delete(id); res = await fetchStream((await getAudioUrl(id)).url, range); }   // adresse expirée : une nouvelle
+  } catch { return new Response('', { status: 502 }); }
+  const headers = new Headers();
+  for (const k of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'last-modified']) { const v = res.headers.get(k); if (v) headers.set(k, v); }
+  if (!headers.has('accept-ranges')) headers.set('accept-ranges', 'bytes');
+  return new Response(res.body, { status: res.status, headers });
+}
+
+module.exports = { getAudioUrl, reset, dispose, streamUserAgent, handleStream };

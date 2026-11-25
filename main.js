@@ -1,9 +1,12 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, session, net, screen, globalShortcut, desktopCapturer } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, session, net, screen, globalShortcut, desktopCapturer, protocol } = require('electron');
 const path = require('path');
 const ytPublic = require('./ytpublic');
 const ytTv = require('./yt-tv');
 const ytStream = require('./yt-stream');
 const DiscordRPC = require('./discord-rpc');
+// adresse interne du flux audio YouTube (voir yt-stream.js) : lisible en continu, avec avance rapide, et autorisée par la
+// règle de sécurité de la page (sinon « media-src * » ne couvre pas un schéma propre à l'appli)
+protocol.registerSchemesAsPrivileged([{ scheme: 'sonora-yt', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: true } }]);
 const fs = require('fs');
 const { pathToFileURL } = require('url');
 
@@ -391,7 +394,7 @@ ipcMain.handle('yt-tv-session', async (_e, opts) => {
 ipcMain.handle('yt-tv-reset', () => { ytTv.invalidateTvSession(); return true; });
 // adresse audio directe d'une vidéo YouTube (voir yt-stream.js) : { ok, url, mime } ou { ok: false, error }
 ipcMain.handle('yt-audio', async (_e, videoId) => {
-  try { const r = await ytStream.getAudioUrl(videoId); return { ok: true, url: r.url, mime: r.mime, via: r.via }; }
+  try { const r = await ytStream.getAudioUrl(videoId); return { ok: true, url: 'sonora-yt://audio/' + videoId, direct: r.url, mime: r.mime, via: r.via }; }
   catch (e) { return { ok: false, error: String((e && e.message) || e).slice(0, 600) }; }
 });
 // l'adresse a été refusée pendant la lecture : on oublie les adresses et la session
@@ -528,6 +531,7 @@ app.on('before-quit', () => { try { ytStream.dispose(); ytTv.dispose(); } catch 
 
 app.whenReady().then(() => {
   if (!gotLock) return;
+  try { protocol.handle('sonora-yt', (req) => ytStream.handleStream(req)); } catch (e) { console.error('sonora-yt', e.message); }
   // un seul écouteur par session : YouTube (Referer du lecteur intégré) et googlevideo (User-Agent du client qui a obtenu le flux)
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ['https://www.youtube.com/*', 'https://*.googlevideo.com/*'] },
