@@ -7,5 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   pickImageData: () => ipcRenderer.invoke('pick-image-data'),
   fetchJson: (url) => ipcRenderer.invoke('fetch-json', url),
   ytSearch: (q) => ipcRenderer.invoke('yt-search', q),
+  ytTvSession: (opts) => ipcRenderer.invoke('yt-tv-session', opts),
+  ytTvReset: () => ipcRenderer.invoke('yt-tv-reset'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url)
 });
