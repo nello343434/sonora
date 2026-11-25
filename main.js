@@ -42,6 +42,7 @@ function toTrack(p) {
   return { id: 'l:' + p, title, artist, src: pathToFileURL(p).href, source: 'local' };
 }
 
+let mainWin = null;
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -59,6 +60,15 @@ function createWindow() {
     }
   });
   win.setMenuBarVisibility(false);
+  mainWin = win;
+  // fenêtre principale fermée : on ferme aussi les fenêtres cachées (BotGuard, décodage YouTube) et on quitte,
+  // sinon elles gardent l'appli en vie en arrière-plan et Sonora ne peut plus se relancer
+  win.on('closed', () => {
+    mainWin = null;
+    try { ytStream.dispose(); ytTv.dispose(); } catch { /* ignoré */ }
+    app.quit();
+    setTimeout(() => app.exit(0), 2500);   // filet de sécurité
+  });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) shell.openExternal(url);
@@ -172,8 +182,8 @@ ipcMain.handle('open-external', (_e, url) => {
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 app.on('second-instance', () => {
-  const w = BrowserWindow.getAllWindows()[0];
-  if (w) { if (w.isMinimized()) w.restore(); w.focus(); }
+  const w = mainWin && !mainWin.isDestroyed() ? mainWin : null;   // jamais une fenêtre cachée
+  if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); }
 });
 // cache du navigateur dans le dossier temporaire de Windows (toujours accessible en écriture)
 app.commandLine.appendSwitch('disk-cache-dir', path.join(app.getPath('temp'), 'sonora-cache'));
@@ -188,7 +198,7 @@ app.whenReady().then(() => {
     }
   );
   createWindow();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  app.on('activate', () => { if (!mainWin) createWindow(); });
 });
 // ferme la fenêtre cachée de BotGuard, sinon le processus reste en vie
 app.on('before-quit', () => { try { ytStream.dispose(); ytTv.dispose(); } catch { /* ignoré */ } });
