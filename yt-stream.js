@@ -133,6 +133,7 @@ async function getAudioUrl(videoId) {
     let url = '';
     try { url = await player.decipher(fmt.url, fmt.signatureCipher, fmt.cipher); } catch (e) { report.push(cl.label + ' : décodage impossible (' + e.message + ')'); continue; }
     // le serveur vidéo accepte-t-il vraiment cette adresse ? (quelques octets suffisent)
+    try { const n0 = new URL(fmt.url || new URLSearchParams(fmt.signatureCipher || fmt.cipher || '').get('url')).searchParams.get('n'), n1 = new URL(url).searchParams.get('n'); console.log('[sonora-yt]', videoId, cl.label, 'n :', n0 ? (n0 === n1 ? 'NON transformé' : 'transformé') : 'absent', '| client c =', new URL(url).searchParams.get('c')); } catch { /* journal seulement */ }
     const st = await probe(url);
     if (st !== 200 && st !== 206) { report.push(cl.label + ' : adresse obtenue mais flux refusé (' + (st || 'réseau') + ')'); continue; }
     f = { url, mime_type: fmt.mimeType, bitrate: fmt.bitrate }; used = cl; break;
@@ -165,6 +166,15 @@ function streamUserAgent(url) {
 // ---- relais du flux : le lecteur de la page lit « sonora-yt://audio/<videoId> » et c'est le processus principal
 // qui télécharge le son chez YouTube, avec les mêmes en-têtes que la vérification qui a réussi (pas de cookies,
 // pas d'en-têtes de navigateur que le serveur vidéo refuse). Les demandes de plage (Range) passent telles quelles.
+// le serveur vidéo refuse les gros téléchargements d'une traite : on ne demande jamais plus de 1 Mo à la fois
+// (le lecteur reçoit une réponse partielle 206 et demande la suite tout seul)
+const CHUNK = 1024 * 1024;
+function boundRange(range) {
+  const m = /^bytes=(\d+)-(\d*)$/.exec(range || 'bytes=0-');
+  if (!m) return range;
+  const start = +m[1], end = m[2] === '' ? start + CHUNK - 1 : Math.min(+m[2], start + CHUNK - 1);
+  return 'bytes=' + start + '-' + end;
+}
 async function fetchStream(url, range) {
   const ua = streamUserAgent(url);
   const headers = {};
@@ -176,12 +186,16 @@ async function handleStream(req) {
   let id = '';
   try { id = new URL(req.url).pathname.replace(/^\/+/, '').slice(0, 11); } catch { /* ignoré */ }
   if (!/^[\w-]{11}$/.test(id)) return new Response('', { status: 400 });
-  const range = req.headers.get('range') || '';
+  const asked = req.headers.get('range') || '', range = boundRange(asked);
   let res;
   try {
     res = await fetchStream((await getAudioUrl(id)).url, range);
-    if (res.status === 403 || res.status === 410) { urls.delete(id); res = await fetchStream((await getAudioUrl(id)).url, range); }   // adresse expirée : une nouvelle
-  } catch { return new Response('', { status: 502 }); }
+    if (res.status === 403 || res.status === 410) {   // adresse expirée ou refusée : une nouvelle
+      console.log('[sonora-yt]', id, range, '->', res.status, ': nouvelle adresse');
+      urls.delete(id); res = await fetchStream((await getAudioUrl(id)).url, range);
+    }
+  } catch (e) { console.log('[sonora-yt]', id, 'erreur :', e.message); return new Response('', { status: 502 }); }
+  console.log('[sonora-yt]', id, asked || '(sans plage)', '=>', range, '->', res.status, res.headers.get('content-range') || '');
   const headers = new Headers();
   for (const k of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'last-modified']) { const v = res.headers.get(k); if (v) headers.set(k, v); }
   if (!headers.has('accept-ranges')) headers.set('accept-ranges', 'bytes');
