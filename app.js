@@ -145,6 +145,8 @@ function askText(title, placeholder, cb) {
 
 /* ───────────── lecteur YouTube ───────────── */
 let ytPlayer = null, ytReady = false, ytPending = null, ytPlaying = false;
+// videoId du titre YouTube lu en audio direct (session TV), sinon '' : le lecteur intégré prend le relais
+let ytDirect = '';
 
 function createYT() {
   ytPlayer = new YT.Player('yt-player', {
@@ -184,7 +186,7 @@ setInterval(() => {
 }, 500);
 
 /* ───────────── lecteur ───────────── */
-const isYT = () => { const t = S.queue[S.qi]; return !!(t && t.source === 'youtube'); };
+const isYT = () => { const t = S.queue[S.qi]; return !!(t && t.source === 'youtube' && ytDirect !== t.videoId); };
 const isPaused = () => isYT() ? !ytPlaying : audio.paused;
 const curTime = () => isYT() ? (ytReady ? ytPlayer.getCurrentTime() || 0 : 0) : audio.currentTime;
 const curDur = () => isYT() ? (ytReady ? ytPlayer.getDuration() || 0 : 0) : audio.duration;
@@ -239,11 +241,18 @@ async function playIndex(i) {
   S.qi = i;
   try {
     if (t.source === 'youtube') {
-      audio.pause();
-      if (ytReady) ytPlayer.loadVideoById(t.videoId);
-      else { ytPending = t; toast('Chargement du lecteur YouTube…'); }
+      audio.pause(); ytDirect = '';
+      if (ytReady) ytPlayer.stopVideo();
+      // 1) audio direct via la session YouTube TV  2) sinon le lecteur intégré, comme avant
+      const r = window.api.ytAudio ? await window.api.ytAudio(t.videoId).catch(() => null) : null;
+      if (S.queue[S.qi] !== t) return;                                   // on a changé de titre entre-temps
+      if (r && r.ok) {
+        ytDirect = t.videoId; ytPending = null; ytPlaying = false;
+        audio.src = r.url;
+        try { await audio.play(); } catch (e) { if (e && e.name === 'NotAllowedError') throw e; ytFallback(t); }
+      } else ytFallback(t);
     } else {
-      ytPending = null; ytPlaying = false;
+      ytDirect = ''; ytPending = null; ytPlaying = false;
       if (ytReady) ytPlayer.stopVideo();
       await resolveTrack(t);
       audio.src = t.src;
@@ -255,6 +264,14 @@ async function playIndex(i) {
   S.recent = [qcopy(t, false), ...S.recent.filter(x => !sameTrack(x, t))].slice(0, 20); persist();   // le titre qu'on vient de lancer passe en tête
   updatePlayer(); refreshPlayingMarks();
   if (S.view === 'home') render();                                                       // la liste « Écoutés récemment » se réordonne tout de suite
+}
+// l'audio direct a échoué : on relit le titre avec le lecteur intégré YouTube
+function ytFallback(t) {
+  if (ytDirect === t.videoId) { ytDirect = ''; if (window.api.ytAudioReset) window.api.ytAudioReset(); }
+  audio.pause(); audio.removeAttribute('src'); audio.load();
+  if (ytReady) ytPlayer.loadVideoById(t.videoId);
+  else { ytPending = t; toast('Chargement du lecteur YouTube…'); }
+  updatePlayer();
 }
 function playFrom(list, i, name) {
   const base = list.map(t => qcopy(t, false));
@@ -336,7 +353,11 @@ audio.addEventListener('timeupdate', () => {
   $('#t-cur').textContent = fmt(audio.currentTime);
 });
 audio.addEventListener('loadedmetadata', () => { if (!isYT()) $('#t-dur').textContent = fmt(audio.duration); });
-audio.addEventListener('error', () => { if (audio.src && !isYT()) toast('Ce fichier ne peut pas être lu.'); });
+audio.addEventListener('error', () => {
+  const t = S.queue[S.qi];
+  if (t && t.source === 'youtube' && ytDirect === t.videoId) { ytFallback(t); return; }   // adresse refusée ou expirée
+  if (audio.src && !isYT()) toast('Ce fichier ne peut pas être lu.');
+});
 
 $('#seek').addEventListener('input', e => { e.target.dataset.drag = '1'; fill(e.target); $('#t-cur').textContent = fmt(e.target.value / 1000 * curDur()); });
 $('#seek').addEventListener('change', e => {

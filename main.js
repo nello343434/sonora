@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, session } = require('electro
 const path = require('path');
 const fs = require('fs');
 const ytTv = require('./yt-tv');
+const ytStream = require('./yt-stream');
 const { pathToFileURL } = require('url');
 
 const AUDIO_EXT = new Set(['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.opus', '.aac']);
@@ -155,6 +156,13 @@ ipcMain.handle('yt-tv-session', async (_e, opts) => {
 });
 // YouTube a refusé la session (403, « confirm you're not a bot ») : la prochaine demande en fabrique une neuve
 ipcMain.handle('yt-tv-reset', () => { ytTv.invalidateTvSession(); return true; });
+// adresse audio directe d'une vidéo YouTube (voir yt-stream.js) : { ok, url, mime } ou { ok: false, error }
+ipcMain.handle('yt-audio', async (_e, videoId) => {
+  try { const r = await ytStream.getAudioUrl(videoId); return { ok: true, url: r.url, mime: r.mime }; }
+  catch (e) { return { ok: false, error: String((e && e.message) || e).slice(0, 200) }; }
+});
+// l'adresse a été refusée pendant la lecture : on oublie les adresses et la session
+ipcMain.handle('yt-audio-reset', () => { ytStream.reset(); return true; });
 
 ipcMain.handle('open-external', (_e, url) => {
   if (/^https:\/\//.test(url)) shell.openExternal(url);
@@ -183,5 +191,5 @@ app.whenReady().then(() => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 // ferme la fenêtre cachée de BotGuard, sinon le processus reste en vie
-app.on('before-quit', () => { try { ytTv.dispose(); } catch { /* ignoré */ } });
+app.on('before-quit', () => { try { ytStream.dispose(); ytTv.dispose(); } catch { /* ignoré */ } });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

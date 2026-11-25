@@ -9,5 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   ytSearch: (q) => ipcRenderer.invoke('yt-search', q),
   ytTvSession: (opts) => ipcRenderer.invoke('yt-tv-session', opts),
   ytTvReset: () => ipcRenderer.invoke('yt-tv-reset'),
+  ytAudio: (videoId) => ipcRenderer.invoke('yt-audio', videoId),
+  ytAudioReset: () => ipcRenderer.invoke('yt-audio-reset'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url)
 });

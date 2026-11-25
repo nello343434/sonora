@@ -9,6 +9,12 @@
   "build": {
     "appId": "com.perso.sonora",
     "productName": "Sonora",
-    "win": { "target": "nsis", "icon": "build/icon.ico" }
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    }
+  },
+  "dependencies": {
+    "youtubei.js": "^18.3.0"
   }
 }
