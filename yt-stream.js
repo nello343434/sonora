@@ -100,7 +100,7 @@ async function playerRequest(cl, s, videoId, poToken) {
 async function probe(url) {
   try {
     const ua = streamUserAgent(url);
-    const res = await session.fromPartition('sonora-yt-probe').fetch(url, { headers: Object.assign({ Range: 'bytes=0-1' }, ua ? { 'User-Agent': ua } : {}), credentials: 'omit', signal: AbortSignal.timeout(10000) });
+    const res = await session.fromPartition('sonora-yt-probe').fetch(url, { headers: Object.assign({ Range: 'bytes=0-1' }, ua ? { 'User-Agent': ua } : {}), credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(10000) });
     try { await res.arrayBuffer(); } catch { /* ignoré */ }
     return res.status;
   } catch { return 0; }
@@ -176,7 +176,8 @@ function fetchStream(url, range) {
   const headers = {};
   if (range) headers.Range = range;
   if (ua) headers['User-Agent'] = ua;
-  return session.fromPartition('sonora-yt-probe').fetch(url, { headers, credentials: 'omit' });
+  // session à part et sans cache : sinon Chromium peut resservir les 2 octets de la vérification au lieu du fichier
+  return session.fromPartition('sonora-yt-dl').fetch(url, { headers, credentials: 'omit', cache: 'no-store' });
 }
 
 async function download(id, f, retry) {
@@ -201,8 +202,9 @@ async function download(id, f, retry) {
       f.have += n;
       f.wake();
     }
-    f.done = true;
     console.log('[sonora-yt]', id, 'téléchargé :', f.have, '/', f.total, 'octets');
+    if (f.have < f.total) throw new Error('fichier incomplet (' + f.have + ' / ' + f.total + ')');
+    f.done = true;
   } catch (e) {
     f.error = e; console.log('[sonora-yt]', id, 'erreur de téléchargement :', e.message);
     files.delete(id);   // la prochaine demande recommencera
