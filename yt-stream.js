@@ -136,19 +136,19 @@ async function getAudioUrl(videoId) {
     try { const n0 = new URL(fmt.url || new URLSearchParams(fmt.signatureCipher || fmt.cipher || '').get('url')).searchParams.get('n'), n1 = new URL(url).searchParams.get('n'); console.log('[sonora-yt]', videoId, cl.label, 'n :', n0 ? (n0 === n1 ? 'NON transformé' : 'transformé') : 'absent', '| client c =', new URL(url).searchParams.get('c')); } catch { /* journal seulement */ }
     const st = await probe(url);
     if (st !== 200 && st !== 206) { report.push(cl.label + ' : adresse obtenue mais flux refusé (' + (st || 'réseau') + ')'); continue; }
-    f = { url, mime_type: fmt.mimeType, bitrate: fmt.bitrate }; used = cl; break;
+    f = { url, mime_type: fmt.mimeType, bitrate: fmt.bitrate, size: +fmt.contentLength || 0 }; used = cl; break;
   }
   if (!f) throw new Error('YouTube refuse le flux — ' + report.join(' | ') + ' — version TV ' + s.clientVersion + ', sts ' + (sts || '?'));
   preferred = used.id;
   const exp = Number(new URL(f.url).searchParams.get('expire')) * 1000;
-  const out = { url: f.url, mime: f.mime_type || '', bitrate: f.bitrate || 0, via: used.label, expiresAt: (exp > Date.now() ? exp : Date.now() + 3 * 3600e3) - 10 * 60e3 };
+  const out = { url: f.url, mime: f.mime_type || '', bitrate: f.bitrate || 0, size: f.size, via: used.label, expiresAt: (exp > Date.now() ? exp : Date.now() + 3 * 3600e3) - 10 * 60e3 };
   urls.set(videoId, out);
   if (urls.size > 200) urls.delete(urls.keys().next().value);
   return out;
 }
 
 // YouTube a refusé l'adresse ou la session : on repart de zéro au prochain titre
-function reset() { urls.clear(); yt = null; ytToken = ''; ytTv.invalidateTvSession(); }
+function reset() { urls.clear(); files.clear(); yt = null; ytToken = ''; ytTv.invalidateTvSession(); }
 
 function dispose() { const w = evalWin; evalWin = null; evalReady = null; if (w && !w.isDestroyed()) { try { w.destroy(); } catch { /* ignoré */ } } }
 
@@ -163,43 +163,83 @@ function streamUserAgent(url) {
   return '';
 }
 
-// ---- relais du flux : le lecteur de la page lit « sonora-yt://audio/<videoId> » et c'est le processus principal
-// qui télécharge le son chez YouTube, avec les mêmes en-têtes que la vérification qui a réussi (pas de cookies,
-// pas d'en-têtes de navigateur que le serveur vidéo refuse). Les demandes de plage (Range) passent telles quelles.
-// le serveur vidéo refuse les gros téléchargements d'une traite : on ne demande jamais plus de 1 Mo à la fois
-// (le lecteur reçoit une réponse partielle 206 et demande la suite tout seul)
-const CHUNK = 1024 * 1024;
-function boundRange(range) {
-  const m = /^bytes=(\d+)-(\d*)$/.exec(range || 'bytes=0-');
-  if (!m) return range;
-  const start = +m[1], end = m[2] === '' ? start + CHUNK - 1 : Math.min(+m[2], start + CHUNK - 1);
-  return 'bytes=' + start + '-' + end;
-}
-async function fetchStream(url, range) {
+// ---- relais du flux : le lecteur de la page lit « sonora-yt://audio/<videoId> » ----
+// Le serveur vidéo n'accepte que les téléchargements qui partent du début du fichier (une plage qui commence plus loin
+// reçoit 403). Le processus principal télécharge donc le titre une fois, du début à la fin, en mémoire, et sert au
+// lecteur les plages qu'il demande au fur et à mesure qu'elles arrivent : la lecture démarre tout de suite et l'avance
+// rapide marche. On garde les 3 derniers titres.
+const files = new Map();   // videoId -> { total, mime, buf, have, done, error, wake }
+const KEEP = 3;
+
+function fetchStream(url, range) {
   const ua = streamUserAgent(url);
   const headers = {};
   if (range) headers.Range = range;
   if (ua) headers['User-Agent'] = ua;
   return session.fromPartition('sonora-yt-probe').fetch(url, { headers, credentials: 'omit' });
 }
+
+async function download(id, f, retry) {
+  try {
+    const info = await getAudioUrl(id);
+    const res = await fetchStream(info.url, info.size ? 'bytes=0-' + (info.size - 1) : 'bytes=0-');
+    console.log('[sonora-yt]', id, 'téléchargement ->', res.status, res.headers.get('content-range') || res.headers.get('content-length') || '');
+    if (res.status === 403 && !retry) { urls.delete(id); return download(id, f, true); }   // adresse périmée : une nouvelle, une fois
+    if (res.status !== 200 && res.status !== 206) throw new Error('HTTP ' + res.status);
+    const cr = /\/(\d+)$/.exec(res.headers.get('content-range') || '');
+    f.total = info.size || (cr ? +cr[1] : +res.headers.get('content-length') || 0);
+    if (!f.total) throw new Error('taille inconnue');
+    f.mime = (info.mime || res.headers.get('content-type') || 'audio/webm').split(';')[0];
+    f.buf = Buffer.alloc(f.total);
+    f.wake();
+    const reader = res.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const n = Math.min(value.length, f.total - f.have);
+      Buffer.from(value.buffer, value.byteOffset, n).copy(f.buf, f.have);
+      f.have += n;
+      f.wake();
+    }
+    f.done = true;
+    console.log('[sonora-yt]', id, 'téléchargé :', f.have, '/', f.total, 'octets');
+  } catch (e) {
+    f.error = e; console.log('[sonora-yt]', id, 'erreur de téléchargement :', e.message);
+    files.delete(id);   // la prochaine demande recommencera
+  }
+  f.wake();
+}
+
+function openFile(id) {
+  let f = files.get(id);
+  if (f) { files.delete(id); files.set(id, f); return f; }   // passe en « récent »
+  f = { total: 0, mime: '', buf: null, have: 0, done: false, error: null, waiters: [] };
+  f.wake = () => { const w = f.waiters; f.waiters = []; w.forEach((r) => r()); };
+  f.until = (cond) => new Promise((resolve) => { const check = () => (cond() || f.error || f.done) ? resolve() : f.waiters.push(check); check(); });
+  files.set(id, f);
+  while (files.size > KEEP) files.delete(files.keys().next().value);
+  download(id, f, false);
+  return f;
+}
+
 async function handleStream(req) {
   let id = '';
   try { id = new URL(req.url).pathname.replace(/^\/+/, '').slice(0, 11); } catch { /* ignoré */ }
   if (!/^[\w-]{11}$/.test(id)) return new Response('', { status: 400 });
-  const asked = req.headers.get('range') || '', range = boundRange(asked);
-  let res;
-  try {
-    res = await fetchStream((await getAudioUrl(id)).url, range);
-    if (res.status === 403 || res.status === 410) {   // adresse expirée ou refusée : une nouvelle
-      console.log('[sonora-yt]', id, range, '->', res.status, ': nouvelle adresse');
-      urls.delete(id); res = await fetchStream((await getAudioUrl(id)).url, range);
-    }
-  } catch (e) { console.log('[sonora-yt]', id, 'erreur :', e.message); return new Response('', { status: 502 }); }
-  console.log('[sonora-yt]', id, asked || '(sans plage)', '=>', range, '->', res.status, res.headers.get('content-range') || '');
-  const headers = new Headers();
-  for (const k of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'last-modified']) { const v = res.headers.get(k); if (v) headers.set(k, v); }
-  if (!headers.has('accept-ranges')) headers.set('accept-ranges', 'bytes');
-  return new Response(res.body, { status: res.status, headers });
+  const f = openFile(id);
+  await f.until(() => f.total > 0);
+  if (!f.total) return new Response('', { status: 502 });
+  const m = /^bytes=(\d+)-(\d*)$/.exec(req.headers.get('range') || '');
+  const start = m ? +m[1] : 0;
+  if (start >= f.total) return new Response('', { status: 416, headers: { 'Content-Range': 'bytes */' + f.total } });
+  await f.until(() => f.have > start);                       // attend que le début de la plage soit arrivé
+  if (f.have <= start) return new Response('', { status: 502 });
+  const want = m && m[2] !== '' ? Math.min(+m[2], f.total - 1) : f.total - 1;
+  const end = Math.min(want, f.have - 1, start + 4 * 1024 * 1024 - 1);   // ce qui est déjà là (4 Mo max par réponse)
+  const body = f.buf.subarray(start, end + 1);
+  return new Response(body, { status: 206, headers: {
+    'Content-Type': f.mime, 'Content-Length': String(body.length), 'Content-Range': 'bytes ' + start + '-' + end + '/' + f.total, 'Accept-Ranges': 'bytes'
+  } });
 }
 
-module.exports = { getAudioUrl, reset, dispose, streamUserAgent, handleStream };
+module.exports = { getAudioUrl, reset, dispose, streamUserAgent, handleStream, _cache: urls };
