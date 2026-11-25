@@ -186,6 +186,18 @@ app.on('second-instance', () => {
   if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); }
 });
 // cache du navigateur dans le dossier temporaire de Windows (toujours accessible en écriture)
+// ---- stockage disque (gros jeux de données : playlists de milliers de titres) ----
+const dbDir = () => path.join(app.getPath('userData'), 'db');
+const dbFile = (k) => path.join(dbDir(), String(k).replace(/[^a-z0-9._-]/gi, '_') + '.json');
+const dbTimers = new Map(), dbPending = new Map();
+function dbFlush(k) {
+  const v = dbPending.get(k); if (v === undefined) return; dbPending.delete(k);
+  try { fs.mkdirSync(dbDir(), { recursive: true }); const f = dbFile(k), tmp = f + '.tmp'; fs.writeFileSync(tmp, v); fs.renameSync(tmp, f); } catch (e) { console.error('db', e.message); }
+}
+ipcMain.on('db-get', (e, k) => { try { e.returnValue = dbPending.has(k) ? dbPending.get(k) : (fs.existsSync(dbFile(k)) ? fs.readFileSync(dbFile(k), 'utf8') : null); } catch { e.returnValue = null; } });
+ipcMain.on('db-set', (_e, k, v) => { dbPending.set(k, v); clearTimeout(dbTimers.get(k)); dbTimers.set(k, setTimeout(() => dbFlush(k), 500)); });
+app.on('before-quit', () => { for (const k of [...dbPending.keys()]) dbFlush(k); });
+
 app.commandLine.appendSwitch('disk-cache-dir', path.join(app.getPath('temp'), 'sonora-cache'));
 
 app.whenReady().then(() => {
